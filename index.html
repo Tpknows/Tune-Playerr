@@ -631,7 +631,7 @@
 <!-- Add to playlist modal -->
 <div class="modal-backdrop" id="addToPlaylistModal">
   <div class="modal">
-    <h3>Add to playlist</h3>
+    <h3 id="addToPlaylistTitle">Add to playlist</h3>
     <select id="playlistSelect"></select>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeModal('addToPlaylistModal')">Cancel</button>
@@ -774,6 +774,7 @@ let currentTrack = null;
 let player = null;
 let playerReady = false;
 let pendingAddTrack = null;
+let pendingBulkTracks = null;
 
 /* ---------- YouTube IFrame API ---------- */
 function loadYT(){
@@ -887,6 +888,10 @@ function renderTrackList(title, sub, tracks, opts={}){
     actionsHtml = `<div class="section-actions">
       <button onclick="exportPlaylist('${escAttr(playlistName)}')">⬇ Export as JSON</button>
       <button onclick="document.getElementById('importFileInput').dataset.target='${escAttr(playlistName)}'; document.getElementById('importFileInput').click()">⬆ Import JSON</button>
+    </div>`;
+  } else if(opts.bulkAdd){
+    actionsHtml = `<div class="section-actions">
+      <button onclick="openAddAllToPlaylistModal(queueRef())">+ Add all ${tracks.length} to playlist</button>
     </div>`;
   }
 
@@ -1044,7 +1049,7 @@ async function showTopToday(){
 
 function renderTopToday(tracks){
   const today = new Date().toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
-  renderTrackList('🔥 Top 20 Today', `Trending music right now — ${today}`, tracks);
+  renderTrackList('🔥 Top 20 Today', `Trending music right now — ${today}`, tracks, {bulkAdd:true});
 }
 
 function closeSidebarOnMobile(){
@@ -1178,6 +1183,22 @@ function showPlaylist(name, setNav=true){
 function openAddToPlaylistModal(track){
   if(!track) return;
   pendingAddTrack = track;
+  pendingBulkTracks = null;
+  document.getElementById('addToPlaylistTitle').textContent = 'Add to playlist';
+  populatePlaylistSelect();
+  document.getElementById('addToPlaylistModal').classList.add('open');
+}
+
+function openAddAllToPlaylistModal(tracks){
+  if(!tracks || tracks.length === 0) return;
+  pendingBulkTracks = tracks;
+  pendingAddTrack = null;
+  document.getElementById('addToPlaylistTitle').textContent = `Add all ${tracks.length} tracks to playlist`;
+  populatePlaylistSelect();
+  document.getElementById('addToPlaylistModal').classList.add('open');
+}
+
+function populatePlaylistSelect(){
   const sel = document.getElementById('playlistSelect');
   const names = Object.keys(playlists);
   if(names.length === 0){
@@ -1185,18 +1206,41 @@ function openAddToPlaylistModal(track){
   } else {
     sel.innerHTML = names.map(n => `<option value="${escAttr(n)}">${escapeHtml(n)}</option>`).join('');
   }
-  document.getElementById('addToPlaylistModal').classList.add('open');
 }
+
 function confirmAddToPlaylist(){
   const name = document.getElementById('playlistSelect').value;
-  if(!name || !pendingAddTrack) { closeModal('addToPlaylistModal'); return; }
+  if(!name){
+    closeModal('addToPlaylistModal');
+    pendingAddTrack = null;
+    pendingBulkTracks = null;
+    return;
+  }
   const list = playlists[name];
-  if(!list.some(t => t.id === pendingAddTrack.id)){
-    list.push(pendingAddTrack);
+
+  if(pendingBulkTracks){
+    let added = 0;
+    pendingBulkTracks.forEach(t => {
+      if(t && t.id && !list.some(existing => existing.id === t.id)){
+        list.push(t);
+        added++;
+      }
+    });
     savePlaylists();
     renderPlaylistNav();
+    closeModal('addToPlaylistModal');
+    pendingBulkTracks = null;
+  } else if(pendingAddTrack){
+    if(!list.some(t => t.id === pendingAddTrack.id)){
+      list.push(pendingAddTrack);
+      savePlaylists();
+      renderPlaylistNav();
+    }
+    closeModal('addToPlaylistModal');
+    pendingAddTrack = null;
+  } else {
+    closeModal('addToPlaylistModal');
   }
-  closeModal('addToPlaylistModal');
 }
 
 /* ---------- Mobile sidebar toggle ---------- */
