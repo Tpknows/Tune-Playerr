@@ -148,10 +148,11 @@
     min-height:0;
   }
   .topbar{
-    padding:20px 28px 14px;
+    padding:20px 28px 4px;
     border-bottom:1px solid var(--line);
   }
-  .search-row{display:flex; gap:10px; max-width:640px;}
+  .topbar-row{display:flex; align-items:center;}
+  .search-row{display:flex; gap:10px; max-width:640px; flex:1;}
   .search-row input{
     flex:1;
     background:var(--surface);
@@ -174,6 +175,36 @@
     font-size:14px;
   }
   .search-row button:hover{background:#ecc06a;}
+
+  /* Mood chips — persistent quick-filter row */
+  .mood-row{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding:14px 0 12px;
+    scrollbar-width:none;
+  }
+  .mood-row::-webkit-scrollbar{display:none;}
+  .mood-chip{
+    flex-shrink:0;
+    padding:8px 16px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--text-dim);
+    font-size:13px;
+    font-family:inherit;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .mood-chip:hover{border-color:var(--gold); color:var(--text);}
+  .mood-chip.active{
+    background:var(--gold);
+    color:#1a1410;
+    border-color:var(--gold);
+    font-weight:600;
+  }
   .content{
     flex:1;
     overflow-y:auto;
@@ -267,6 +298,66 @@
     text-align:center;
   }
   .empty b{color:var(--text);}
+
+  /* QUICK PICKS (landing grid) */
+  .quick-picks-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom:18px;
+  }
+  .quick-picks-header .section-title{margin-bottom:0;}
+  .qp-actions{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  .qp-play-all{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:20px;
+    padding:8px 18px;
+    font-size:13px;
+    font-weight:600;
+    font-family:inherit;
+    cursor:pointer;
+  }
+  .qp-play-all:hover{border-color:var(--gold); color:var(--gold);}
+  .qp-arrow{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    border-radius:50%;
+    width:32px; height:32px;
+    font-size:14px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .qp-arrow:hover{border-color:var(--gold); color:var(--gold);}
+  .quick-picks-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:2px 28px;
+  }
+  .qp-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:8px 6px;
+    border-radius:8px;
+    cursor:pointer;
+    min-width:0;
+  }
+  .qp-item:hover{background:var(--surface);}
+  .qp-item.playing .qp-title{color:var(--gold);}
+  .qp-thumb{
+    width:48px; height:48px;
+    border-radius:6px;
+    object-fit:cover;
+    background:var(--surface-hi);
+    flex-shrink:0;
+  }
+  .qp-meta{min-width:0;}
+  .qp-title{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .qp-sub{font-size:12px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 
   /* NOW PLAYING BAR */
   .now-playing{
@@ -452,16 +543,14 @@
     }
 
     /* Topbar: hamburger + search, minimal padding */
-    .topbar{
-      display:flex;
-      align-items:center;
-      padding:14px 14px 10px;
-      gap:8px;
-    }
+    .topbar{ padding:14px 14px 4px; }
+    .topbar-row{ align-items:center; gap:8px; }
     .menu-btn{ display:block; }
     .search-row{ max-width:none; flex:1; gap:8px; }
     .search-row input{ padding:10px 12px; font-size:13px; }
     .search-row button{ padding:0 14px; font-size:13px; }
+    .mood-row{ padding:10px 0 8px; gap:8px; }
+    .mood-chip{ padding:7px 14px; font-size:12px; }
 
     .content{ padding:14px 14px 132px; }
     .section-title{ font-size:18px; }
@@ -488,6 +577,15 @@
       border-radius:50%;
     }
     .track-add::before{ content:'+'; font-size:16px; }
+
+    /* Quick picks: single column, compact header on mobile */
+    .quick-picks-header{ margin-bottom:12px; }
+    .qp-play-all{ padding:7px 14px; font-size:12px; }
+    .qp-arrow{ width:28px; height:28px; font-size:12px; }
+    .quick-picks-grid{ grid-template-columns:1fr; gap:2px; }
+    .qp-thumb{ width:40px; height:40px; }
+    .qp-title{ font-size:13px; }
+    .qp-sub{ font-size:11px; }
 
     /* Now playing: compact two-row mini player, pinned to bottom */
     .now-playing{
@@ -544,7 +642,7 @@
       <button class="new-playlist-btn" id="signInBtn" onclick="signInWithGoogle()">Sign in with Google</button>
     </div>
     <div class="nav-group">
-      <button class="nav-item active" data-view="search" onclick="switchView('search')">🔍 &nbsp;Search</button>
+      <button class="nav-item" data-view="search" onclick="switchView('search')">🔍 &nbsp;Search</button>
       <button class="nav-item" data-view="top" onclick="showTopToday()">🔥 &nbsp;Top 20 Today</button>
       <button class="nav-item" data-view="recent" onclick="showRecent()">🕓 &nbsp;Recently played</button>
     </div>
@@ -557,15 +655,18 @@
 
   <div class="main">
     <div class="topbar">
-      <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
-      <div class="search-row">
-        <input id="searchInput" type="text" placeholder="Search any song, artist, or track title..." onkeydown="if(event.key==='Enter')doSearch()">
-        <button onclick="doSearch()">Search</button>
+      <div class="topbar-row">
+        <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+        <div class="search-row">
+          <input id="searchInput" type="text" placeholder="Search any song, artist, or track title..." onkeydown="if(event.key==='Enter')doSearch()">
+          <button onclick="doSearch()">Search</button>
+        </div>
       </div>
+      <div class="mood-row" id="moodRow"></div>
     </div>
     <div class="content" id="content">
       <div class="empty">
-        <p>Type something in the search bar above to find tracks.</p>
+        <p>Loading quick picks…</p>
       </div>
     </div>
   </div>
@@ -1002,6 +1103,106 @@ function handleImportFile(event){
   reader.readAsText(file);
 }
 
+/* ---------- Quick picks (mood chips landing) ---------- */
+const moodChips = [
+  {label:'Workout', query:'workout gym music mix'},
+  {label:'Energize', query:'energetic hype music mix'},
+  {label:'Feel good', query:'feel good happy music mix'},
+  {label:'Relax', query:'relaxing chill music mix'},
+  {label:'Party', query:'party dance music mix'},
+  {label:'Commute', query:'commute driving music mix'},
+  {label:'Romance', query:'romantic love songs mix'},
+  {label:'Sad', query:'sad emotional music mix'},
+  {label:'Focus', query:'focus concentration music mix'},
+  {label:'Sleep', query:'sleep calm music mix'}
+];
+let activeMoodIndex = 0;
+
+function renderMoodChips(){
+  const row = document.getElementById('moodRow');
+  row.innerHTML = moodChips.map((m, i) => `
+    <button class="mood-chip ${i===activeMoodIndex?'active':''}" onclick="selectMood(${i})">${escapeHtml(m.label)}</button>
+  `).join('');
+}
+
+async function selectMood(index){
+  activeMoodIndex = index;
+  currentView = {type:'quickpicks', moodIndex:index};
+  renderMoodChips();
+  setActiveNav();
+
+  if(!apiKey){
+    document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TuneCrate logo 5 times to add one.</div>`;
+    closeSidebarOnMobile();
+    return;
+  }
+
+  renderLoading();
+  const mood = moodChips[index];
+  try{
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=12&q=${encodeURIComponent(mood.query)}&key=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.error){
+      renderError(data.error.message || 'API error');
+      closeSidebarOnMobile();
+      return;
+    }
+    const tracks = (data.items||[]).map(it => ({
+      id: it.id.videoId,
+      title: it.snippet.title,
+      channel: it.snippet.channelTitle,
+      thumb: it.snippet.thumbnails.default.url
+    }));
+    queue = tracks;
+    renderQuickPicks(mood.label, tracks);
+  }catch(err){
+    renderError('Could not reach YouTube. Check your connection or API key.');
+  }
+  closeSidebarOnMobile();
+}
+
+function shiftMood(delta){
+  let next = (activeMoodIndex + delta + moodChips.length) % moodChips.length;
+  selectMood(next);
+}
+
+function renderQuickPicks(label, tracks){
+  const content = document.getElementById('content');
+  if(tracks.length === 0){
+    content.innerHTML = `<div class="quick-picks-header"><div class="section-title">Quick picks</div></div><div class="empty">No tracks here yet.</div>`;
+    return;
+  }
+  let html = `
+    <div class="quick-picks-header">
+      <div class="section-title">Quick picks</div>
+      <div class="qp-actions">
+        <button class="qp-play-all" onclick="playAllQuickPicks()">Play all</button>
+        <button class="qp-arrow" onclick="shiftMood(-1)" aria-label="Previous mood">‹</button>
+        <button class="qp-arrow" onclick="shiftMood(1)" aria-label="Next mood">›</button>
+      </div>
+    </div>
+    <div class="quick-picks-grid" id="quickPicksGrid">`;
+  tracks.forEach((t, i) => {
+    const isPlaying = currentTrack && currentTrack.id === t.id;
+    html += `
+      <div class="qp-item ${isPlaying?'playing':''}" onclick="playFromQueue(${i})">
+        <img class="qp-thumb" src="${t.thumb}" alt="">
+        <div class="qp-meta">
+          <div class="qp-title">${escapeHtml(t.title)}</div>
+          <div class="qp-sub">${escapeHtml(t.channel)}</div>
+        </div>
+      </div>`;
+  });
+  html += `</div>`;
+  content.innerHTML = html;
+}
+
+function playAllQuickPicks(){
+  if(queue.length === 0) return;
+  playFromQueue(0);
+}
+
 /* ---------- Top 20 of the day ---------- */
 async function showTopToday(){
   currentView = {type:'top'};
@@ -1132,6 +1333,8 @@ function refreshCurrentView(){
     renderTrackList('Recently played', `${recentTracks.length} tracks`, recentTracks);
   } else if(currentView.type === 'top'){
     renderTopToday(queue);
+  } else if(currentView.type === 'quickpicks'){
+    renderQuickPicks(moodChips[currentView.moodIndex].label, queue);
   }
 }
 
@@ -1254,16 +1457,17 @@ function toggleSidebar(force){
 
 /* ---------- Nav / view switching ---------- */
 function switchView(type){
+  if(type === 'search'){
+    selectMood(activeMoodIndex);
+    return;
+  }
   currentView = {type};
   setActiveNav();
-  if(type === 'search'){
-    document.getElementById('content').innerHTML = `<div class="empty">Type something in the search bar above to find tracks.</div>`;
-  }
   if(window.innerWidth <= 768) toggleSidebar(false);
 }
 function setActiveNav(){
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  if(currentView.type === 'search'){
+  if(currentView.type === 'search' || currentView.type === 'quickpicks'){
     document.querySelector('.nav-item[data-view="search"]')?.classList.add('active');
   } else if(currentView.type === 'recent'){
     document.querySelector('.nav-item[data-view="recent"]')?.classList.add('active');
@@ -1307,6 +1511,8 @@ function closeModal(id){
 
 /* ---------- Init ---------- */
 renderPlaylistNav();
+renderMoodChips();
+selectMood(activeMoodIndex);
 </script>
 </body>
 </html>
