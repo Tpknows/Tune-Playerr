@@ -79,10 +79,6 @@
     line-height:1.15;
   }
   .brand-accent{
-    background:var(--accent-grad);
-    -webkit-background-clip:text;
-    background-clip:text;
-    -webkit-text-fill-color:transparent;
     color:var(--accent);
   }
   .brand-dim{color:var(--text-dim); font-weight:400;}
@@ -867,13 +863,30 @@ try{
   console.warn('Firebase not configured yet — running in guest-only mode.', err);
 }
 
+function isMobileBrowser(){
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (window.innerWidth <= 760);
+}
+
 function signInWithGoogle(){
   if(!firebaseReady){
     alert('Firebase isn\'t configured yet. Paste your Firebase config into the code first.');
     return;
   }
   const provider = new firebase.auth.GoogleAuthProvider();
+  if(isMobileBrowser()){
+    fbAuth.signInWithRedirect(provider).catch(err => {
+      alert('Sign-in failed: ' + err.message);
+    });
+    return;
+  }
   fbAuth.signInWithPopup(provider).catch(err => {
+    const fallbackCodes = ['auth/popup-blocked','auth/popup-closed-by-user','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment'];
+    if(fallbackCodes.includes(err.code)){
+      fbAuth.signInWithRedirect(provider).catch(err2 => {
+        alert('Sign-in failed: ' + err2.message);
+      });
+      return;
+    }
     alert('Sign-in failed: ' + err.message);
   });
 }
@@ -901,6 +914,11 @@ function renderAccountArea(){
 }
 
 if(firebaseReady){
+  fbAuth.getRedirectResult().catch(err => {
+    if(err && err.code && err.code !== 'auth/no-current-user'){
+      alert('Sign-in failed: ' + err.message + (err.code === 'auth/unauthorized-domain' ? '\n\nThis site\'s domain needs to be added under Firebase Console → Authentication → Settings → Authorized domains.' : ''));
+    }
+  });
   fbAuth.onAuthStateChanged(async (user) => {
     currentUser = user;
     renderAccountArea();
