@@ -426,8 +426,7 @@
     </div>
     <div class="content" id="content">
       <div class="empty">
-        <p><b>API key needed to search.</b></p>
-        <p style="margin-top:6px;">If this is your device, tap the TuneCrate logo 5 times to open API settings.</p>
+        <p>Type something in the search bar above to find tracks.</p>
       </div>
     </div>
   </div>
@@ -625,7 +624,9 @@ async function persistUserData(){
 
 <script>
 /* ---------- State ---------- */
-let apiKey = localStorage.getItem('tc_api_key') || '';
+// Embedded default key — restricted to this site's domain in Google Cloud Console.
+const DEFAULT_YT_API_KEY = "AIzaSyCbnSlYoO8NGHqFtq4JpTqnAfdj5mg75dM";
+let apiKey = localStorage.getItem('tc_api_key') || DEFAULT_YT_API_KEY;
 let playlists = JSON.parse(localStorage.getItem('tc_playlists') || '{}');
 let currentView = {type:'search'}; // {type:'search'} | {type:'playlist', name}
 let queue = [];        // current list of tracks being browsed/played
@@ -699,7 +700,7 @@ async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
   if(!q) return;
   if(!apiKey){
-    document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device yet.</b><br>Tap the TuneCrate logo 5 times to add one.</div>`;
+    document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TuneCrate logo 5 times to add one.</div>`;
     return;
   }
   currentView = {type:'search'};
