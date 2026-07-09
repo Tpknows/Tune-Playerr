@@ -993,6 +993,10 @@ function seek(e){
 }
 
 /* ---------- Search ---------- */
+let currentSearchQuery = null;
+let currentSearchNextToken = null;
+let searchLoadingMore = false;
+
 async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
   if(!q) return;
@@ -1003,8 +1007,10 @@ async function doSearch(){
   currentView = {type:'search'};
   setActiveNav();
   renderLoading();
+  currentSearchQuery = q;
+  currentSearchNextToken = null;
   try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=20&q=${encodeURIComponent(q)}&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(q)}&key=${apiKey}`;
     const res = await fetch(url);
     const data = await res.json();
     if(data.error){
@@ -1017,10 +1023,40 @@ async function doSearch(){
       channel: it.snippet.channelTitle,
       thumb: it.snippet.thumbnails.default.url
     }));
+    currentSearchNextToken = data.nextPageToken || null;
     queue = tracks;
-    renderTrackList(`Results for "${q}"`, `${tracks.length} tracks found`, tracks);
+    renderTrackList(`Results for "${q}"`, `${tracks.length} tracks found`, tracks, {loadMore: currentSearchNextToken ? loadMoreSearch : null});
   }catch(err){
     renderError('Could not reach YouTube. Check your connection or API key.');
+  }
+}
+
+async function loadMoreSearch(){
+  if(!currentSearchNextToken || searchLoadingMore) return;
+  searchLoadingMore = true;
+  const btn = document.getElementById('loadMoreBtn');
+  if(btn) btn.textContent = 'Loading…';
+  try{
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(currentSearchQuery)}&pageToken=${currentSearchNextToken}&key=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.error){
+      renderError(data.error.message || 'API error');
+      return;
+    }
+    const more = (data.items||[]).map(it => ({
+      id: it.id.videoId,
+      title: it.snippet.title,
+      channel: it.snippet.channelTitle,
+      thumb: it.snippet.thumbnails.default.url
+    }));
+    currentSearchNextToken = data.nextPageToken || null;
+    queue = queue.concat(more);
+    renderTrackList(`Results for "${currentSearchQuery}"`, `${queue.length} tracks found`, queue, {loadMore: currentSearchNextToken ? loadMoreSearch : null});
+  }catch(err){
+    renderError('Could not reach YouTube. Check your connection or API key.');
+  }finally{
+    searchLoadingMore = false;
   }
 }
 
@@ -1072,6 +1108,9 @@ function renderTrackList(title, sub, tracks, opts={}){
       </div>`;
   });
   html += `</div>`;
+  if(opts.loadMore){
+    html += `<div style="padding:18px 4px; text-align:center;"><button id="loadMoreBtn" onclick="(${opts.loadMore.name})()" style="background:none; border:none; color:var(--text-dim); font-size:13px; cursor:pointer; border-bottom:1px solid var(--text-dim); padding:4px 0;">Load more</button></div>`;
+  }
   content.innerHTML = html;
 
   if(draggable){
@@ -1181,6 +1220,9 @@ function renderMoodChips(){
   `).join('');
 }
 
+let currentMoodNextToken = null;
+let moodLoadingMore = false;
+
 async function selectMood(index){
   activeMoodIndex = index;
   currentView = {type:'quickpicks', moodIndex:index};
@@ -1195,8 +1237,9 @@ async function selectMood(index){
 
   renderLoading();
   const mood = moodChips[index];
+  currentMoodNextToken = null;
   try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=12&q=${encodeURIComponent(mood.query)}&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}&key=${apiKey}`;
     const res = await fetch(url);
     const data = await res.json();
     if(data.error){
@@ -1210,12 +1253,43 @@ async function selectMood(index){
       channel: it.snippet.channelTitle,
       thumb: it.snippet.thumbnails.default.url
     }));
+    currentMoodNextToken = data.nextPageToken || null;
     queue = tracks;
     renderQuickPicks(mood.label, tracks);
   }catch(err){
     renderError('Could not reach YouTube. Check your connection or API key.');
   }
   closeSidebarOnMobile();
+}
+
+async function loadMoreQuickPicks(){
+  if(!currentMoodNextToken || moodLoadingMore) return;
+  moodLoadingMore = true;
+  const btn = document.getElementById('loadMoreQpBtn');
+  if(btn) btn.textContent = 'Loading…';
+  const mood = moodChips[activeMoodIndex];
+  try{
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}&pageToken=${currentMoodNextToken}&key=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.error){
+      renderError(data.error.message || 'API error');
+      return;
+    }
+    const more = (data.items||[]).map(it => ({
+      id: it.id.videoId,
+      title: it.snippet.title,
+      channel: it.snippet.channelTitle,
+      thumb: it.snippet.thumbnails.default.url
+    }));
+    currentMoodNextToken = data.nextPageToken || null;
+    queue = queue.concat(more);
+    renderQuickPicks(mood.label, queue);
+  }catch(err){
+    renderError('Could not reach YouTube. Check your connection or API key.');
+  }finally{
+    moodLoadingMore = false;
+  }
 }
 
 function shiftMood(delta){
@@ -1251,6 +1325,9 @@ function renderQuickPicks(label, tracks){
       </div>`;
   });
   html += `</div>`;
+  if(currentMoodNextToken){
+    html += `<div style="padding:18px 4px; text-align:center;"><button id="loadMoreQpBtn" onclick="loadMoreQuickPicks()" style="background:none; border:none; color:var(--text-dim); font-size:13px; cursor:pointer; border-bottom:1px solid var(--text-dim); padding:4px 0;">Load more</button></div>`;
+  }
   content.innerHTML = html;
 }
 
