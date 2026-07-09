@@ -393,12 +393,149 @@
     font-size:12px; color:var(--text-dim); line-height:1.5;
   }
   .setup-note a{color:var(--gold);}
+
+  /* MOBILE MENU BUTTON + BACKDROP (hidden on desktop) */
+  .menu-btn{
+    display:none;
+    background:none;
+    border:none;
+    color:var(--text);
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    padding:6px 8px 6px 0;
+    flex-shrink:0;
+  }
+  .sidebar-backdrop{
+    display:none;
+  }
+
+  /* =========================================================
+     MOBILE / MINIMALIST LAYOUT — phones and narrow viewports
+     ========================================================= */
+  @media (max-width:760px){
+    body{ overflow:hidden; }
+
+    .app{
+      grid-template-columns:1fr;
+      position:relative;
+    }
+
+    /* Sidebar becomes an off-canvas drawer */
+    .sidebar{
+      position:fixed;
+      top:0; left:0; bottom:0;
+      width:82vw;
+      max-width:280px;
+      z-index:60;
+      transform:translateX(-100%);
+      transition:transform .22s ease;
+      box-shadow:4px 0 28px rgba(0,0,0,.55);
+      padding:18px 14px;
+      gap:20px;
+    }
+    .sidebar.open{ transform:translateX(0); }
+
+    .sidebar-backdrop{
+      display:block;
+      position:fixed;
+      inset:0;
+      background:rgba(8,7,11,.6);
+      z-index:55;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .22s ease;
+    }
+    .sidebar-backdrop.open{
+      opacity:1;
+      pointer-events:auto;
+    }
+
+    /* Topbar: hamburger + search, minimal padding */
+    .topbar{
+      display:flex;
+      align-items:center;
+      padding:14px 14px 10px;
+      gap:8px;
+    }
+    .menu-btn{ display:block; }
+    .search-row{ max-width:none; flex:1; gap:8px; }
+    .search-row input{ padding:10px 12px; font-size:13px; }
+    .search-row button{ padding:0 14px; font-size:13px; }
+
+    .content{ padding:14px 14px 132px; }
+    .section-title{ font-size:18px; }
+    .section-sub{ font-size:12px; margin-bottom:14px; }
+    .section-actions{ flex-wrap:wrap; margin-bottom:12px; }
+    .section-actions button{ font-size:11px; padding:6px 10px; }
+
+    /* Track rows: compact, minimal chrome */
+    .track-row{
+      grid-template-columns:40px 1fr auto;
+      gap:10px;
+      padding:9px 4px;
+    }
+    .track-row.draggable{ grid-template-columns:16px 40px 1fr auto; }
+    .track-thumb{ width:40px; height:40px; }
+    .track-title{ font-size:13px; }
+    .track-channel{ font-size:11px; }
+    .track-mono{ display:none; } /* skip the "playing" text badge — the gold title says it */
+    .track-add{
+      font-size:0;
+      padding:8px;
+      width:32px; height:32px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:50%;
+    }
+    .track-add::before{ content:'+'; font-size:16px; }
+
+    /* Now playing: compact two-row mini player, pinned to bottom */
+    .now-playing{
+      display:grid;
+      grid-template-columns:1fr auto;
+      grid-template-areas:
+        "track side"
+        "controls controls";
+      height:auto;
+      padding:10px 14px 12px;
+      row-gap:8px;
+      column-gap:10px;
+    }
+    .np-track{ grid-area:track; gap:10px; }
+    .disc-wrap{ width:40px; height:40px; }
+    .np-title{ font-size:12px; }
+    .np-channel{ font-size:11px; }
+    .np-side{ grid-area:side; align-self:center; }
+    .np-add-btn{
+      font-size:0;
+      padding:8px;
+      width:32px; height:32px;
+      border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .np-add-btn::before{ content:'+'; font-size:16px; }
+    .np-controls{ grid-area:controls; width:100%; gap:4px; }
+    .np-buttons{ gap:22px; justify-content:center; }
+    .np-buttons button{ font-size:15px; }
+    .np-play{ width:36px; height:36px; font-size:14px !important; }
+    .np-progress{ font-size:9px; }
+
+    /* Modals become bottom sheets */
+    .modal-backdrop{ align-items:flex-end; }
+    .modal{
+      width:100%;
+      max-width:none;
+      border-radius:16px 16px 0 0;
+      padding:20px 18px 24px;
+    }
+  }
 </style>
 </head>
 <body>
 
 <div class="app">
-  <div class="sidebar">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+  <div class="sidebar" id="sidebar">
     <div>
       <div class="brand" id="brandLogo" onclick="handleLogoClick()">Tune<span>Crate</span></div>
       <div class="brand-sub">your crate, your cuts</div>
@@ -408,6 +545,7 @@
     </div>
     <div class="nav-group">
       <button class="nav-item active" data-view="search" onclick="switchView('search')">🔍 &nbsp;Search</button>
+      <button class="nav-item" data-view="top" onclick="showTopToday()">🔥 &nbsp;Top 20 Today</button>
       <button class="nav-item" data-view="recent" onclick="showRecent()">🕓 &nbsp;Recently played</button>
     </div>
     <div class="nav-group">
@@ -419,6 +557,7 @@
 
   <div class="main">
     <div class="topbar">
+      <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
       <div class="search-row">
         <input id="searchInput" type="text" placeholder="Search any song, artist, or track title..." onkeydown="if(event.key==='Enter')doSearch()">
         <button onclick="doSearch()">Search</button>
@@ -731,7 +870,11 @@ function renderLoading(){
   document.getElementById('content').innerHTML = `<div class="empty">Searching…</div>`;
 }
 function renderError(msg){
-  document.getElementById('content').innerHTML = `<div class="empty"><b>Something went wrong.</b><br>${msg}</div>`;
+  let extra = '';
+  if(/referer|referrer/i.test(msg)){
+    extra = `<br><br><span style="font-size:12px;">This means your YouTube API key has HTTP referrer restrictions that don't allow this page's origin. If you're opening this file directly (file://) or testing on a new domain, either serve it over http/https and add that domain to the key's allowed referrers in Google Cloud Console, or use a key with no referrer restriction.</span>`;
+  }
+  document.getElementById('content').innerHTML = `<div class="empty"><b>Something went wrong.</b><br>${msg}${extra}</div>`;
 }
 
 function renderTrackList(title, sub, tracks, opts={}){
@@ -854,6 +997,60 @@ function handleImportFile(event){
   reader.readAsText(file);
 }
 
+/* ---------- Top 20 of the day ---------- */
+async function showTopToday(){
+  currentView = {type:'top'};
+  setActiveNav();
+
+  const todayKey = new Date().toISOString().slice(0,10);
+  const cached = JSON.parse(localStorage.getItem('tc_top_cache') || 'null');
+  if(cached && cached.date === todayKey){
+    queue = cached.tracks;
+    renderTopToday(cached.tracks);
+    closeSidebarOnMobile();
+    return;
+  }
+
+  if(!apiKey){
+    document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TuneCrate logo 5 times to add one.</div>`;
+    closeSidebarOnMobile();
+    return;
+  }
+
+  renderLoading();
+  try{
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&videoCategoryId=10&regionCode=PH&maxResults=20&key=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.error){
+      renderError(data.error.message || 'API error');
+      closeSidebarOnMobile();
+      return;
+    }
+    const tracks = (data.items||[]).map(it => ({
+      id: it.id,
+      title: it.snippet.title,
+      channel: it.snippet.channelTitle,
+      thumb: it.snippet.thumbnails.default.url
+    }));
+    localStorage.setItem('tc_top_cache', JSON.stringify({date:todayKey, tracks}));
+    queue = tracks;
+    renderTopToday(tracks);
+  }catch(err){
+    renderError('Could not reach YouTube. Check your connection or API key.');
+  }
+  closeSidebarOnMobile();
+}
+
+function renderTopToday(tracks){
+  const today = new Date().toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
+  renderTrackList('🔥 Top 20 Today', `Trending music right now — ${today}`, tracks);
+}
+
+function closeSidebarOnMobile(){
+  if(window.innerWidth <= 760) toggleSidebar(false);
+}
+
 /* ---------- Recently played ---------- */
 let recentTracks = JSON.parse(localStorage.getItem('tc_recent') || '[]');
 function saveRecent(){
@@ -870,6 +1067,7 @@ function showRecent(){
   setActiveNav();
   queue = recentTracks;
   renderTrackList('Recently played', `${recentTracks.length} tracks`, recentTracks);
+  if(window.innerWidth <= 768) toggleSidebar(false);
 }
 
 function escapeHtml(s){
@@ -927,6 +1125,8 @@ function refreshCurrentView(){
     showPlaylist(currentView.name, false);
   } else if(currentView.type === 'recent'){
     renderTrackList('Recently played', `${recentTracks.length} tracks`, recentTracks);
+  } else if(currentView.type === 'top'){
+    renderTopToday(queue);
   }
 }
 
@@ -972,6 +1172,7 @@ function showPlaylist(name, setNav=true){
   queue = tracks;
   renderPlaylistNav();
   renderTrackList(name, `${tracks.length} saved tracks — drag ⠿ to reorder`, tracks, {draggable:true, playlistName:name});
+  if(window.innerWidth <= 768) toggleSidebar(false);
 }
 
 function openAddToPlaylistModal(track){
@@ -998,6 +1199,15 @@ function confirmAddToPlaylist(){
   closeModal('addToPlaylistModal');
 }
 
+/* ---------- Mobile sidebar toggle ---------- */
+function toggleSidebar(force){
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  const open = typeof force === 'boolean' ? force : !sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', open);
+  backdrop.classList.toggle('open', open);
+}
+
 /* ---------- Nav / view switching ---------- */
 function switchView(type){
   currentView = {type};
@@ -1005,6 +1215,7 @@ function switchView(type){
   if(type === 'search'){
     document.getElementById('content').innerHTML = `<div class="empty">Type something in the search bar above to find tracks.</div>`;
   }
+  if(window.innerWidth <= 768) toggleSidebar(false);
 }
 function setActiveNav(){
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -1012,6 +1223,8 @@ function setActiveNav(){
     document.querySelector('.nav-item[data-view="search"]')?.classList.add('active');
   } else if(currentView.type === 'recent'){
     document.querySelector('.nav-item[data-view="recent"]')?.classList.add('active');
+  } else if(currentView.type === 'top'){
+    document.querySelector('.nav-item[data-view="top"]')?.classList.add('active');
   }
   renderPlaylistNav();
 }
