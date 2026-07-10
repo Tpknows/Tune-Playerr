@@ -827,6 +827,10 @@
   .now-playing.fullscreen .np-fullscreen-close:hover{color:var(--text);}
 
   .now-playing.fullscreen{
+    display:flex !important;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
     position:fixed; inset:0; z-index:500;
     height:100vh;
     margin:0;
@@ -835,10 +839,6 @@
     box-shadow:none;
     backdrop-filter:none;
     -webkit-backdrop-filter:none;
-    grid-template-columns:1fr;
-    grid-template-rows:auto auto auto;
-    align-content:center;
-    justify-items:center;
     padding:60px 24px 40px;
     gap:28px;
     background:var(--bg);
@@ -1658,6 +1658,11 @@ let currentKeyIndex = parseInt(localStorage.getItem('tc_key_index'), 10) || 0;
 if(currentKeyIndex >= apiKeys.length) currentKeyIndex = 0;
 let playlists = JSON.parse(localStorage.getItem('tc_playlists') || '{}');
 let playlistFolders = JSON.parse(localStorage.getItem('tc_playlist_folders') || '{}'); // {folderName: [playlistName, ...]}
+
+/* ---------- Icons (inline SVG, inherit color via currentColor) ---------- */
+const ICON_FOLDER = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>`;
+const ICON_MUSIC = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+const ICON_PLUS = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 let currentView = {type:'search'}; // {type:'search'} | {type:'playlist', name}
 let queue = [];        // current list of tracks being browsed/played
 let currentIndex = -1;
@@ -2744,7 +2749,7 @@ function renderLibraryGrid(){
     const count = playlistFolders[folder].length;
     return `
     <button class="library-card library-folder-card" onclick="showFolder('${escAttr(folder)}')">
-      <div class="library-card-icon">📁</div>
+      <div class="library-card-icon">${ICON_FOLDER}</div>
       <div class="library-card-name">${escapeHtml(folder)}</div>
       <div class="library-card-count">${count} playlist${count===1?'':'s'}</div>
     </button>`;
@@ -2755,7 +2760,7 @@ function renderLibraryGrid(){
     return `
     <div class="library-card" tabindex="0" role="button" onclick="showPlaylist('${escAttr(name)}')" onkeydown="if(event.key==='Enter')showPlaylist('${escAttr(name)}')">
       <button class="library-card-delete" title="Delete playlist" onclick="event.stopPropagation(); openDeletePlaylistModal('${escAttr(name)}')">✕</button>
-      <div class="library-card-icon">🎵</div>
+      <div class="library-card-icon">${ICON_MUSIC}</div>
       <div class="library-card-name">${escapeHtml(name)}</div>
       <div class="library-card-count">${count} track${count===1?'':'s'}</div>
     </div>`;
@@ -2773,11 +2778,11 @@ function renderLibraryGrid(){
     </div>
     <div class="library-grid">
       <button class="library-card library-new-card" onclick="openNewPlaylistModal()">
-        <div class="library-card-icon">+</div>
+        <div class="library-card-icon">${ICON_PLUS}</div>
         <div class="library-card-name">New playlist</div>
       </button>
       <button class="library-card library-new-card" onclick="openNewFolderModal()">
-        <div class="library-card-icon">📁</div>
+        <div class="library-card-icon">${ICON_FOLDER}</div>
         <div class="library-card-name">New folder</div>
       </button>
       ${folderCards}
@@ -2801,7 +2806,7 @@ function renderFolderView(folderName){
     return `
     <div class="library-card" tabindex="0" role="button" onclick="showPlaylist('${escAttr(name)}')" onkeydown="if(event.key==='Enter')showPlaylist('${escAttr(name)}')">
       <button class="library-card-delete" title="Delete playlist" onclick="event.stopPropagation(); openDeletePlaylistModal('${escAttr(name)}')">✕</button>
-      <div class="library-card-icon">🎵</div>
+      <div class="library-card-icon">${ICON_MUSIC}</div>
       <div class="library-card-name">${escapeHtml(name)}</div>
       <div class="library-card-count">${count} track${count===1?'':'s'}</div>
     </div>`;
