@@ -283,7 +283,76 @@
     font-size:13px;
     margin-bottom:18px;
   }
+  .shortcuts-btn{
+    width:34px; height:34px;
+    flex-shrink:0;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--text-dim);
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:color .15s, border-color .15s;
+  }
+  .shortcuts-btn:hover{color:var(--text); border-color:var(--accent-line);}
+  .shortcuts-list{display:flex; flex-direction:column; gap:10px; margin:16px 0;}
+  .shortcuts-row{display:flex; align-items:center; justify-content:space-between; gap:16px;}
+  .shortcuts-row span{color:var(--text-dim); font-size:14px;}
+  .shortcuts-keys{display:flex; gap:4px; flex-shrink:0;}
+  .shortcuts-keys kbd{
+    background:var(--surface-hi);
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:3px 8px;
+    font-size:12px;
+    font-family:inherit;
+    color:var(--text);
+  }
   .track-list{display:flex; flex-direction:column;}
+  .library-actions{display:flex; gap:8px; margin-bottom:18px;}
+  .library-actions button{
+    padding:8px 16px;
+    border-radius:999px;
+    border:none;
+    cursor:pointer;
+    font-size:13px;
+    font-weight:600;
+    transition:opacity .15s, background .15s, color .15s;
+  }
+  .library-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+    gap:16px;
+  }
+  .library-card{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:8px;
+    padding:16px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    cursor:pointer;
+    text-align:left;
+    transition:border-color .15s, transform .15s, background .15s;
+  }
+  .library-card:hover{border-color:var(--accent-line); background:var(--surface-hi); transform:translateY(-2px);}
+  .library-card-icon{
+    width:44px; height:44px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:var(--radius-sm);
+    background:var(--accent-soft);
+    color:var(--accent);
+    font-size:18px;
+  }
+  .library-card-name{font-size:14px; font-weight:600; color:var(--text); word-break:break-word;}
+  .library-card-count{font-size:12px; color:var(--text-dim);}
+  .library-new-card{border-style:dashed;}
+  .library-new-card .library-card-icon{font-size:22px; font-weight:700;}
+  .library-folder-card .library-card-icon{background:rgba(59,130,246,0.16); color:var(--accent-2);}
+  .library-empty-note{color:var(--text-dim); font-size:13px; margin-top:6px;}
   .track-row{
     display:grid;
     grid-template-columns:40px 1fr auto auto auto;
@@ -584,6 +653,53 @@
     transition:color .15s, background .15s;
   }
   .np-add-btn:hover{color:var(--text); background:var(--surface-hi);}
+
+  .np-fullscreen-btn{
+    background:none; border:none; color:var(--text-dim);
+    cursor:pointer; font-size:16px; padding:4px;
+    transition:color .15s;
+  }
+  .np-fullscreen-btn:hover{color:var(--text);}
+  .np-fullscreen-close{
+    display:none;
+    position:absolute; top:22px; right:22px;
+    background:none; border:none; color:var(--text-dim);
+    font-size:24px; cursor:pointer; z-index:10;
+  }
+  .now-playing.fullscreen .np-fullscreen-close{display:block;}
+  .now-playing.fullscreen .np-fullscreen-close:hover{color:var(--text);}
+
+  .now-playing.fullscreen{
+    position:fixed; inset:0; z-index:500;
+    height:100vh;
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto auto;
+    align-content:center;
+    justify-items:center;
+    padding:60px 24px 40px;
+    gap:28px;
+    background:var(--bg);
+    border-top:none;
+  }
+  .now-playing.fullscreen .np-track{
+    flex-direction:column;
+    text-align:center;
+    gap:24px;
+    cursor:pointer;
+  }
+  .now-playing.fullscreen .disc-wrap{
+    width:min(64vw, 320px);
+    height:min(64vw, 320px);
+  }
+  .now-playing.fullscreen .np-title{font-size:20px; white-space:normal; max-width:60vw;}
+  .now-playing.fullscreen .np-channel{font-size:14px;}
+  .now-playing.fullscreen .np-controls{width:100%; max-width:420px;}
+  .now-playing.fullscreen .np-buttons{gap:28px;}
+  .now-playing.fullscreen .np-buttons button{font-size:20px;}
+  .now-playing.fullscreen .np-play{width:56px !important; height:56px !important; font-size:20px !important;}
+  .now-playing.fullscreen .np-progress{font-size:12px;}
+  .now-playing.fullscreen .np-side{width:100%; max-width:420px; justify-content:space-between;}
+  .now-playing.fullscreen .np-volume{display:flex !important;}
 
   /* VOLUME */
   .np-volume{display:flex; align-items:center; gap:8px;}
@@ -894,14 +1010,10 @@
     </div>
     <div class="nav-group">
       <button class="nav-item" data-view="search" onclick="switchView('search')">Search</button>
+      <button class="nav-item" data-view="library" onclick="showLibrary()">Library</button>
       <button class="nav-item" data-view="top" onclick="showTopToday()">Top 20 Today</button>
       <button class="nav-item" data-view="opm" onclick="showOPM()">OPM</button>
       <button class="nav-item" data-view="recent" onclick="showRecent()">Recently played</button>
-    </div>
-    <div class="nav-group">
-      <div class="nav-label">Playlists</div>
-      <div id="playlistNav"></div>
-      <button class="new-playlist-btn" onclick="openNewPlaylistModal()">+ New playlist</button>
     </div>
   </div>
 
@@ -913,6 +1025,7 @@
           <input id="searchInput" type="text" placeholder="Search any song, artist, or track title..." onkeydown="if(event.key==='Enter')doSearch()">
           <button onclick="doSearch()">Search</button>
         </div>
+        <button class="shortcuts-btn" onclick="openShortcutsModal()" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
       </div>
       <div class="mood-row" id="moodRow"></div>
     </div>
@@ -925,6 +1038,7 @@
 </div>
 
 <div class="now-playing">
+  <button class="np-fullscreen-close" onclick="toggleFullscreenPlayer(false)" aria-label="Close full screen">✕</button>
   <div class="np-track" onclick="npTrackTap()" style="cursor:pointer;">
     <div class="disc-wrap" id="discWrap"><img id="npThumb" src="" alt=""></div>
     <div class="np-meta">
@@ -951,6 +1065,7 @@
       <button class="np-vol-btn" id="volBtn" onclick="toggleMute()" aria-label="Mute">🔊</button>
       <input type="range" class="np-vol-slider" id="volSlider" min="0" max="100" value="80" oninput="setVolume(this.value)">
     </div>
+    <button class="np-fullscreen-btn" onclick="toggleFullscreenPlayer()" title="Full screen" aria-label="Full screen">⤢</button>
     <button class="np-add-btn" id="npAddBtn" onclick="openAddToPlaylistModal(currentTrack)" disabled>+ Add to playlist</button>
   </div>
 </div>
@@ -996,6 +1111,47 @@
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeModal('addToPlaylistModal')">Cancel</button>
       <button class="btn-gold" onclick="confirmAddToPlaylist()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- New folder modal -->
+<div class="modal-backdrop" id="newFolderModal">
+  <div class="modal">
+    <h3>Name your folder</h3>
+    <input id="newFolderName" type="text" placeholder="e.g. Chill Vibes">
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('newFolderModal')">Cancel</button>
+      <button class="btn-gold" onclick="createFolder()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add playlist to folder modal -->
+<div class="modal-backdrop" id="addToFolderModal">
+  <div class="modal">
+    <h3 id="addToFolderTitle">Add playlist to folder</h3>
+    <select id="folderPlaylistSelect"></select>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('addToFolderModal')">Cancel</button>
+      <button class="btn-gold" onclick="confirmAddToFolder()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard shortcuts modal -->
+<div class="modal-backdrop" id="shortcutsModal">
+  <div class="modal">
+    <h3>Keyboard shortcuts</h3>
+    <div class="shortcuts-list">
+      <div class="shortcuts-row"><span>Play / pause</span><div class="shortcuts-keys"><kbd>Space</kbd></div></div>
+      <div class="shortcuts-row"><span>Seek forward 5s</span><div class="shortcuts-keys"><kbd>→</kbd></div></div>
+      <div class="shortcuts-row"><span>Seek backward 5s</span><div class="shortcuts-keys"><kbd>←</kbd></div></div>
+      <div class="shortcuts-row"><span>Close full screen player</span><div class="shortcuts-keys"><kbd>Esc</kbd></div></div>
+      <div class="shortcuts-row"><span>Show this menu</span><div class="shortcuts-keys"><kbd>?</kbd></div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-gold" onclick="closeModal('shortcutsModal')">Got it</button>
     </div>
   </div>
 </div>
@@ -1104,10 +1260,12 @@ async function loadUserDataFromCloud(uid){
       const data = doc.data();
       playlists = data.playlists || {};
       recentTracks = data.recent || [];
+      playlistFolders = data.folders || {};
     } else {
       playlists = {};
       recentTracks = [];
-      await fbDb.collection('users').doc(uid).set({ playlists:{}, recent:[] });
+      playlistFolders = {};
+      await fbDb.collection('users').doc(uid).set({ playlists:{}, recent:[], folders:{} });
     }
   }catch(err){
     showToast('Could not load your cloud playlists: ' + err.message, 'error');
@@ -1117,6 +1275,7 @@ async function loadUserDataFromCloud(uid){
 function loadGuestDataFromLocalStorage(){
   playlists = JSON.parse(localStorage.getItem('tc_playlists') || '{}');
   recentTracks = JSON.parse(localStorage.getItem('tc_recent') || '[]');
+  playlistFolders = JSON.parse(localStorage.getItem('tc_playlist_folders') || '{}');
 }
 
 async function persistUserData(){
@@ -1124,7 +1283,8 @@ async function persistUserData(){
     try{
       await fbDb.collection('users').doc(currentUser.uid).set({
         playlists: playlists,
-        recent: recentTracks
+        recent: recentTracks,
+        folders: playlistFolders
       });
     }catch(err){
       showToast('Could not save to your account: ' + err.message, 'error');
@@ -1132,6 +1292,7 @@ async function persistUserData(){
   } else {
     localStorage.setItem('tc_playlists', JSON.stringify(playlists));
     localStorage.setItem('tc_recent', JSON.stringify(recentTracks));
+    localStorage.setItem('tc_playlist_folders', JSON.stringify(playlistFolders));
   }
 }
 
@@ -1175,6 +1336,7 @@ let apiKeys = JSON.parse(localStorage.getItem('tc_api_keys') || 'null') || [DEFA
 let currentKeyIndex = parseInt(localStorage.getItem('tc_key_index'), 10) || 0;
 if(currentKeyIndex >= apiKeys.length) currentKeyIndex = 0;
 let playlists = JSON.parse(localStorage.getItem('tc_playlists') || '{}');
+let playlistFolders = JSON.parse(localStorage.getItem('tc_playlist_folders') || '{}'); // {folderName: [playlistName, ...]}
 let currentView = {type:'search'}; // {type:'search'} | {type:'playlist', name}
 let queue = [];        // current list of tracks being browsed/played
 let currentIndex = -1;
@@ -2023,6 +2185,15 @@ document.addEventListener('keydown', (e) => {
   } else if(e.code === 'ArrowLeft'){
     e.preventDefault();
     seekRelative(-5);
+  } else if(e.key === '?'){
+    e.preventDefault();
+    openShortcutsModal();
+  } else if(e.key === 'Escape'){
+    const npEl = document.querySelector('.now-playing');
+    if(npEl && npEl.classList.contains('fullscreen')){
+      e.preventDefault();
+      toggleFullscreenPlayer(false);
+    }
   }
 });
 
@@ -2126,6 +2297,14 @@ function npTrackTap(){
   togglePlay();
 }
 
+function toggleFullscreenPlayer(force){
+  const el = document.querySelector('.now-playing');
+  if(!el) return;
+  const show = force !== undefined ? force : !el.classList.contains('fullscreen');
+  el.classList.toggle('fullscreen', show);
+  document.body.style.overflow = show ? 'hidden' : '';
+}
+
 (function setupSwipeGestures(){
   const target = document.querySelector('.np-track');
   if(!target) return;
@@ -2194,17 +2373,196 @@ function savePlaylists(){
 }
 
 function renderPlaylistNav(){
-  const nav = document.getElementById('playlistNav');
-  const names = Object.keys(playlists);
-  if(names.length === 0){
-    nav.innerHTML = `<div style="font-size:12px;color:var(--text-dim);padding:4px;">No playlists yet</div>`;
+  // Playlists now live on the Library page (see showLibrary) instead of
+  // always being listed in the sidebar, so just keep that page fresh
+  // if it's the one currently on screen.
+  if(currentView.type === 'library') renderLibraryGrid();
+  else if(currentView.type === 'folder') renderFolderView(currentView.name);
+}
+
+function showLibrary(){
+  currentView = {type:'library'};
+  setActiveNav();
+  renderLibraryGrid();
+  if(window.innerWidth <= 768) toggleSidebar(false);
+}
+
+function renderLibraryGrid(){
+  const folderNames = Object.keys(playlistFolders);
+  const groupedNames = new Set(folderNames.flatMap(f => playlistFolders[f]));
+  const ungroupedNames = Object.keys(playlists).filter(name => !groupedNames.has(name));
+
+  const folderCards = folderNames.map(folder => {
+    const count = playlistFolders[folder].length;
+    return `
+    <button class="library-card library-folder-card" onclick="showFolder('${escAttr(folder)}')">
+      <div class="library-card-icon">📁</div>
+      <div class="library-card-name">${escapeHtml(folder)}</div>
+      <div class="library-card-count">${count} playlist${count===1?'':'s'}</div>
+    </button>`;
+  }).join('');
+
+  const playlistCards = ungroupedNames.map(name => {
+    const count = playlists[name].length;
+    return `
+    <button class="library-card" onclick="showPlaylist('${escAttr(name)}')">
+      <div class="library-card-icon">🎵</div>
+      <div class="library-card-name">${escapeHtml(name)}</div>
+      <div class="library-card-count">${count} track${count===1?'':'s'}</div>
+    </button>`;
+  }).join('');
+
+  const isEmpty = folderNames.length === 0 && ungroupedNames.length === 0;
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-title">Library</div>
+    <div class="section-sub">Your saved playlists</div>
+    <div class="library-actions">
+      <button class="btn-ghost" onclick="exportPlaylists()">⬇ Export backup</button>
+      <button class="btn-ghost" onclick="document.getElementById('importPlaylistsInput').click()">⬆ Import backup</button>
+      <input type="file" id="importPlaylistsInput" accept="application/json" style="display:none" onchange="importPlaylists(event)">
+    </div>
+    <div class="library-grid">
+      <button class="library-card library-new-card" onclick="openNewPlaylistModal()">
+        <div class="library-card-icon">+</div>
+        <div class="library-card-name">New playlist</div>
+      </button>
+      <button class="library-card library-new-card" onclick="openNewFolderModal()">
+        <div class="library-card-icon">📁</div>
+        <div class="library-card-name">New folder</div>
+      </button>
+      ${folderCards}
+      ${playlistCards}
+    </div>
+    ${isEmpty ? '<div class="library-empty-note">Wala ka pa lang playlist — gumawa ng bago sa itaas.</div>' : ''}
+  `;
+}
+
+function showFolder(folderName){
+  currentView = {type:'folder', name:folderName};
+  setActiveNav();
+  renderFolderView(folderName);
+  if(window.innerWidth <= 768) toggleSidebar(false);
+}
+
+function renderFolderView(folderName){
+  const names = (playlistFolders[folderName] || []).filter(n => playlists[n]);
+  const cards = names.map(name => {
+    const count = playlists[name].length;
+    return `
+    <button class="library-card" onclick="showPlaylist('${escAttr(name)}')">
+      <div class="library-card-icon">🎵</div>
+      <div class="library-card-name">${escapeHtml(name)}</div>
+      <div class="library-card-count">${count} track${count===1?'':'s'}</div>
+    </button>`;
+  }).join('');
+  document.getElementById('content').innerHTML = `
+    <button class="new-playlist-btn" style="margin-bottom:14px; border:none; padding:0; color:var(--text-dim);" onclick="showLibrary()">← Back to Library</button>
+    <div class="section-title">📁 ${escapeHtml(folderName)}</div>
+    <div class="section-sub">${names.length} playlist${names.length===1?'':'s'} in this folder</div>
+    <div class="library-actions">
+      <button class="btn-ghost" onclick="openAddToFolderModal('${escAttr(folderName)}')">+ Add playlist to folder</button>
+      <button class="btn-ghost" onclick="deleteFolder('${escAttr(folderName)}')">Delete folder</button>
+    </div>
+    <div class="library-grid">${cards}</div>
+    ${names.length === 0 ? '<div class="library-empty-note">Walang laman pa ang folder na ito.</div>' : ''}
+  `;
+}
+
+function openNewFolderModal(){
+  document.getElementById('newFolderName').value = '';
+  document.getElementById('newFolderModal').classList.add('open');
+}
+function createFolder(){
+  const name = document.getElementById('newFolderName').value.trim();
+  if(!name) return;
+  if(!playlistFolders[name]) playlistFolders[name] = [];
+  savePlaylists();
+  closeModal('newFolderModal');
+  showFolder(name);
+}
+
+function deleteFolder(folderName){
+  if(!playlistFolders[folderName]) return;
+  delete playlistFolders[folderName];
+  savePlaylists();
+  showLibrary();
+  showToast(`Na-delete ang folder na "${folderName}". Nanatili ang mga playlist mo sa Library.`, 'success');
+}
+
+let pendingFolderTarget = null;
+function openAddToFolderModal(folderName){
+  const alreadyIn = new Set(playlistFolders[folderName] || []);
+  const available = Object.keys(playlists).filter(n => !alreadyIn.has(n));
+  if(available.length === 0){
+    showToast('Wala nang ibang playlist na pwedeng idagdag dito.', 'error');
     return;
   }
-  nav.innerHTML = names.map(name => `
-    <div class="playlist-row">
-      <button class="nav-item ${currentView.type==='playlist'&&currentView.name===name?'active':''}" onclick="showPlaylist('${escAttr(name)}')">${escapeHtml(name)} <span style="margin-left:auto;font-size:11px;color:var(--text-dim);">${playlists[name].length}</span></button>
-    </div>
-  `).join('');
+  pendingFolderTarget = folderName;
+  const select = document.getElementById('folderPlaylistSelect');
+  select.innerHTML = available.map(n => `<option value="${escAttr(n)}">${escapeHtml(n)}</option>`).join('');
+  document.getElementById('addToFolderTitle').textContent = `Add playlist to "${folderName}"`;
+  document.getElementById('addToFolderModal').classList.add('open');
+}
+function confirmAddToFolder(){
+  const name = document.getElementById('folderPlaylistSelect').value;
+  if(!name || !pendingFolderTarget) return;
+  Object.keys(playlistFolders).forEach(f => {
+    playlistFolders[f] = playlistFolders[f].filter(n => n !== name);
+  });
+  if(!playlistFolders[pendingFolderTarget]) playlistFolders[pendingFolderTarget] = [];
+  playlistFolders[pendingFolderTarget].push(name);
+  savePlaylists();
+  closeModal('addToFolderModal');
+  renderFolderView(pendingFolderTarget);
+  showToast(`Idinagdag si "${name}" sa "${pendingFolderTarget}".`, 'success');
+}
+
+function exportPlaylists(){
+  const backup = { exportedAt: new Date().toISOString(), playlists };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `tuneplayerr-playlists-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Na-download na ang backup mo.', 'success');
+}
+
+function importPlaylists(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      const incoming = parsed.playlists || parsed;
+      if(typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('Invalid format');
+      let addedCount = 0, mergedCount = 0;
+      Object.keys(incoming).forEach(name => {
+        if(!Array.isArray(incoming[name])) return;
+        if(playlists[name]){
+          const existingIds = new Set(playlists[name].map(t => t.id));
+          const newTracks = incoming[name].filter(t => t && t.id && !existingIds.has(t.id));
+          playlists[name] = playlists[name].concat(newTracks);
+          mergedCount++;
+        } else {
+          playlists[name] = incoming[name];
+          addedCount++;
+        }
+      });
+      savePlaylists();
+      renderLibraryGrid();
+      showToast(`Import done — ${addedCount} bagong playlist, ${mergedCount} na-merge.`, 'success');
+    }catch(err){
+      showToast('Hindi mabasa ang file — siguraduhing yung export mo mismo ang na-upload.', 'error');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 function escAttr(s){ return s.replace(/'/g, "\\'"); }
@@ -2240,6 +2598,13 @@ function showPlaylist(name, setNav=true){
   queue = tracks;
   renderPlaylistNav();
   renderTrackList(name, `${tracks.length} saved tracks — drag ⠿ to reorder`, tracks, {draggable:true, playlistName:name});
+  const content = document.getElementById('content');
+  const backLink = document.createElement('button');
+  backLink.className = 'new-playlist-btn';
+  backLink.style.cssText = 'margin-bottom:14px; border:none; padding:0; color:var(--text-dim);';
+  backLink.textContent = '← Back to Library';
+  backLink.onclick = () => showLibrary();
+  content.insertBefore(backLink, content.firstChild);
   if(window.innerWidth <= 768) toggleSidebar(false);
 }
 
@@ -2333,6 +2698,8 @@ function setActiveNav(){
     document.querySelector('.nav-item[data-view="recent"]')?.classList.add('active');
   } else if(currentView.type === 'top'){
     document.querySelector('.nav-item[data-view="top"]')?.classList.add('active');
+  } else if(currentView.type === 'library' || currentView.type === 'playlist' || currentView.type === 'folder'){
+    document.querySelector('.nav-item[data-view="library"]')?.classList.add('active');
   }
   renderPlaylistNav();
 }
@@ -2373,6 +2740,10 @@ function saveApiKey(){
 
 function closeModal(id){
   document.getElementById(id).classList.remove('open');
+}
+
+function openShortcutsModal(){
+  document.getElementById('shortcutsModal').classList.add('open');
 }
 
 /* ---------- Toast notifications ---------- */
