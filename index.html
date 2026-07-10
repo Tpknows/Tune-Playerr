@@ -1237,10 +1237,23 @@ async function loadSharedApiPool(){
     if(doc.exists){
       const data = doc.data();
       if(Array.isArray(data.keys) && data.keys.length){
-        apiKeys = data.keys;
+        // Merge rather than overwrite — automatic sync should only ever GROW the
+        // list (picking up keys added elsewhere), never silently shrink it just
+        // because this particular Firestore snapshot happens to have fewer keys.
+        const merged = [...apiKeys];
+        data.keys.forEach(k => { if(!merged.includes(k)) merged.push(k); });
+
+        const grewLocally = merged.length > data.keys.length;
+        apiKeys = merged;
         currentKeyIndex = (typeof data.currentIndex === 'number' && data.currentIndex < apiKeys.length) ? data.currentIndex : 0;
         localStorage.setItem('tc_api_keys', JSON.stringify(apiKeys));
         localStorage.setItem('tc_key_index', String(currentKeyIndex));
+
+        // If this device knew about keys Firestore didn't, push the corrected,
+        // merged list back up so every other device heals too.
+        if(grewLocally){
+          await saveSharedApiPool();
+        }
       }
     } else {
       // First time ever — seed the shared doc from whatever this device currently has.
