@@ -1164,7 +1164,9 @@
     .topbar{ padding:14px 14px 4px; }
     .topbar-row{ align-items:center; gap:8px; border-bottom:none; padding-bottom:8px; }
     .menu-btn{ display:block; }
+    .shortcuts-btn{ display:none; }
     .search-row{ max-width:none; flex:1; gap:8px; }
+    .search-row button{ display:none; }
     .search-row input{ padding:10px 14px; font-size:13px; }
     .search-row button{ padding:0 16px; font-size:13px; }
     .mood-row{ padding:14px 14px; margin:10px 0 16px; gap:8px; }
@@ -1972,7 +1974,7 @@ async function doSearch(){
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
-      thumb: it.snippet.thumbnails.default.url
+      thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
     }));
     currentSearchNextToken = data.nextPageToken || null;
     queue = tracks;
@@ -1999,7 +2001,7 @@ async function loadMoreSearch(){
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
-      thumb: it.snippet.thumbnails.default.url
+      thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
     }));
     currentSearchNextToken = data.nextPageToken || null;
     searchPageCount++;
@@ -2274,7 +2276,7 @@ async function selectMood(index){
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
-      thumb: it.snippet.thumbnails.default.url
+      thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
     }));
     currentMoodNextToken = data.nextPageToken || null;
     queue = tracks;
@@ -2304,7 +2306,7 @@ async function loadMoreQuickPicks(){
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
-      thumb: it.snippet.thumbnails.default.url
+      thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
     }));
     currentMoodNextToken = data.nextPageToken || null;
     moodPageCount++;
@@ -2390,7 +2392,7 @@ async function showTopToday(){
       id: it.id,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
-      thumb: it.snippet.thumbnails.default.url
+      thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
     }));
     localStorage.setItem('tc_top_cache', JSON.stringify({date:todayKey, tracks}));
     queue = tracks;
