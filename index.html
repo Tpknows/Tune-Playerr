@@ -299,7 +299,7 @@
   .track-row:hover .track-title{color:var(--text);}
   .track-row.playing{background:var(--accent-soft);}
   .track-row.playing .track-title{color:var(--accent);}
-  .track-row.draggable{grid-template-columns:18px 40px 1fr auto auto auto;}
+  .track-row.draggable{grid-template-columns:18px 40px 1fr auto auto auto auto;}
   .track-row.dragging{opacity:0.4;}
   .track-row.drag-over{border-top:1px solid var(--accent);}
   .drag-handle{
@@ -373,6 +373,21 @@
     .track-row:hover .track-share{opacity:1;}
   }
   .track-share:hover{color:var(--text); background:var(--surface-hi);}
+  .track-remove{
+    background:none;
+    border:none;
+    color:var(--text-dim);
+    border-radius:var(--radius-sm);
+    padding:4px 8px;
+    font-size:12px;
+    cursor:pointer;
+    transition:opacity .15s, color .15s, background .15s;
+  }
+  @media (hover:hover) and (pointer:fine){
+    .track-remove{opacity:0;}
+    .track-row:hover .track-remove{opacity:1;}
+  }
+  .track-remove:hover{color:#ff6b6b; background:var(--surface-hi);}
   .track-mono{
     font-family:'JetBrains Mono', monospace;
     font-size:11px;
@@ -785,7 +800,7 @@
       gap:10px;
       padding:9px 6px;
     }
-    .track-row.draggable{ grid-template-columns:16px 40px 1fr auto; }
+    .track-row.draggable{ grid-template-columns:16px 40px 1fr auto auto; }
     .track-thumb{ width:40px; height:40px; }
     .track-title{ font-size:13px; }
     .track-channel{ font-size:11px; }
@@ -798,6 +813,14 @@
       border-radius:var(--radius-sm);
     }
     .track-add::before{ content:'+'; font-size:18px; font-weight:300; }
+    .track-remove{
+      font-size:0;
+      padding:8px;
+      width:32px; height:32px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:var(--radius-sm);
+    }
+    .track-remove::before{ content:'✕'; font-size:14px; }
 
     /* Quick picks: single column, compact header on mobile */
     .quick-picks-header{ margin-bottom:12px; }
@@ -1130,6 +1153,7 @@ if(firebaseReady){
     renderPlaylistNav();
     if(currentView.type === 'playlist') showPlaylist(currentView.name, false);
     if(currentView.type === 'recent') showRecent();
+    loadSharedApiPool();
   });
 } else {
   renderAccountArea();
@@ -1202,6 +1226,46 @@ function buildKeyedUrl(baseUrl){
 
 function persistKeyIndex(){
   localStorage.setItem('tc_key_index', String(currentKeyIndex));
+  saveSharedApiPool(); // best-effort — keeps everyone's rotation in sync
+}
+
+/* ---------- Shared API key pool (Firestore-backed, so every visitor/device shares it) ---------- */
+async function loadSharedApiPool(){
+  if(!firebaseReady || !fbDb) return;
+  try{
+    const doc = await fbDb.collection('config').doc('apiPool').get();
+    if(doc.exists){
+      const data = doc.data();
+      if(Array.isArray(data.keys) && data.keys.length){
+        apiKeys = data.keys;
+        currentKeyIndex = (typeof data.currentIndex === 'number' && data.currentIndex < apiKeys.length) ? data.currentIndex : 0;
+        localStorage.setItem('tc_api_keys', JSON.stringify(apiKeys));
+        localStorage.setItem('tc_key_index', String(currentKeyIndex));
+      }
+    } else {
+      // First time ever — seed the shared doc from whatever this device currently has.
+      await fbDb.collection('config').doc('apiPool').set({
+        keys: apiKeys,
+        currentIndex: currentKeyIndex,
+        updatedAt: Date.now()
+      });
+    }
+  }catch(err){
+    console.warn('Could not load shared API key pool — using local keys instead.', err);
+  }
+}
+
+async function saveSharedApiPool(){
+  if(!firebaseReady || !fbDb) return;
+  try{
+    await fbDb.collection('config').doc('apiPool').set({
+      keys: apiKeys,
+      currentIndex: currentKeyIndex,
+      updatedAt: Date.now()
+    });
+  }catch(err){
+    console.warn('Could not sync API key pool to the cloud — this device will keep working locally.', err);
+  }
 }
 
 async function fetchYT(baseUrl, maxRetries = 3){
@@ -1493,6 +1557,7 @@ function renderTrackList(title, sub, tracks, opts={}){
         <span class="track-mono">${isPlaying?'▶ playing':''}</span>
         <button class="track-share" title="Share this track" onclick="event.stopPropagation(); shareTrack(queueRef()[${i}])">Share</button>
         <button class="track-add" onclick="event.stopPropagation(); openAddToPlaylistModal(queueRef()[${i}])">+ Playlist</button>
+        ${playlistName ? `<button class="track-remove" title="Remove from playlist" onclick="event.stopPropagation(); removeFromPlaylist('${escAttr(playlistName)}', ${i})">Remove</button>` : ''}
       </div>`;
   });
   html += `</div>`;
@@ -2126,6 +2191,16 @@ function renderPlaylistNav(){
 
 function escAttr(s){ return s.replace(/'/g, "\\'"); }
 
+function removeFromPlaylist(name, index){
+  const list = playlists[name];
+  if(!list || index < 0 || index >= list.length) return;
+  const removed = list.splice(index, 1)[0];
+  savePlaylists();
+  renderPlaylistNav();
+  showPlaylist(name, false);
+  showToast(`Removed "${removed.title}" from ${name}`, 'success');
+}
+
 function openNewPlaylistModal(){
   document.getElementById('newPlaylistName').value = '';
   document.getElementById('newPlaylistModal').classList.add('open');
@@ -2272,8 +2347,9 @@ function saveApiKey(){
   currentKeyIndex = 0;
   localStorage.setItem('tc_api_keys', JSON.stringify(apiKeys));
   localStorage.setItem('tc_key_index', '0');
+  saveSharedApiPool(); // pushes to every device/user automatically
   closeModal('apiModal');
-  showToast(`Saved ${apiKeys.length} API key${apiKeys.length > 1 ? 's' : ''}.`, 'success');
+  showToast(`Saved ${apiKeys.length} API key${apiKeys.length > 1 ? 's' : ''} — synced for all visitors.`, 'success');
   document.getElementById('content').innerHTML = `<div class="empty">API keys saved. Try searching for a track above.</div>`;
 }
 
