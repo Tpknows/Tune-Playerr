@@ -1048,18 +1048,21 @@ function signInWithGoogle(){
   }
   const provider = new firebase.auth.GoogleAuthProvider();
 
-  if(isMobileBrowser()){
-    fbAuth.signInWithRedirect(provider).catch(err => {
-      showToast('Sign-in failed: ' + err.message, 'error');
-    });
-    return;
-  }
-
+  // Always try popup first, even on mobile. signInWithRedirect relies on
+  // sessionStorage/IndexedDB surviving a cross-origin hop through the
+  // firebaseapp.com auth handler — Safari's Intelligent Tracking Prevention
+  // and Brave Shields both block/clear that storage, so the redirect
+  // "succeeds" on Google's side but the app never sees the signed-in user.
+  // A popup triggered synchronously from this tap works fine on iOS Safari
+  // and Brave, since it isn't cross-site storage that's needed — just a
+  // same-tab window handshake.
   fbAuth.signInWithPopup(provider).catch(err => {
+    const userCancelledCodes = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
+    if(userCancelledCodes.includes(err.code)){
+      return; // they closed it themselves, no need to show an error or retry
+    }
     const popupFallbackCodes = [
       'auth/popup-blocked',
-      'auth/popup-closed-by-user',
-      'auth/cancelled-popup-request',
       'auth/operation-not-supported-in-this-environment'
     ];
     if(popupFallbackCodes.includes(err.code)){
