@@ -853,6 +853,13 @@
   .now-playing.fullscreen .disc-wrap{
     width:min(64vw, 320px);
     height:min(64vw, 320px);
+    border-radius:16px;
+    opacity:1 !important;
+    animation:none !important;
+    box-shadow:0 12px 40px rgba(0,0,0,0.45);
+  }
+  .now-playing.fullscreen .disc-wrap img{
+    border-radius:16px;
   }
   .now-playing.fullscreen .np-title{font-size:20px; white-space:normal; max-width:60vw;}
   .now-playing.fullscreen .np-channel{font-size:14px;}
@@ -863,7 +870,7 @@
   .now-playing.fullscreen .np-play{width:60px !important; height:60px !important;}
   .now-playing.fullscreen .np-play svg{width:26px !important; height:26px !important;}
   .now-playing.fullscreen .np-progress{font-size:12px;}
-  .now-playing.fullscreen .np-side{width:100%; max-width:420px; justify-content:space-between;}
+  .now-playing.fullscreen .np-side{width:100%; max-width:420px; justify-content:center; gap:28px;}
   .now-playing.fullscreen .np-volume{display:flex !important;}
 
   .import-yt-section{
@@ -1177,11 +1184,11 @@
 
     /* Track rows: compact, minimal chrome */
     .track-row{
-      grid-template-columns:40px 1fr auto;
+      grid-template-columns:40px 1fr auto auto;
       gap:10px;
       padding:9px 6px;
     }
-    .track-row.draggable{ grid-template-columns:16px 40px 1fr auto auto; }
+    .track-row.draggable{ grid-template-columns:16px 40px 1fr auto auto auto; }
     .track-thumb{ width:40px; height:40px; }
     .track-title{ font-size:13px; }
     .track-channel{ font-size:11px; }
@@ -1963,8 +1970,8 @@ async function doSearch(){
     const data = await fetchYT(url);
     const tracks = (data.items||[]).map(it => ({
       id: it.id.videoId,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
+      title: decodeHtmlEntities(it.snippet.title),
+      channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: it.snippet.thumbnails.default.url
     }));
     currentSearchNextToken = data.nextPageToken || null;
@@ -1990,8 +1997,8 @@ async function loadMoreSearch(){
     const data = await fetchYT(url);
     const more = (data.items||[]).map(it => ({
       id: it.id.videoId,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
+      title: decodeHtmlEntities(it.snippet.title),
+      channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: it.snippet.thumbnails.default.url
     }));
     currentSearchNextToken = data.nextPageToken || null;
@@ -2265,8 +2272,8 @@ async function selectMood(index){
     const data = await fetchYT(url);
     const tracks = (data.items||[]).map(it => ({
       id: it.id.videoId,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
+      title: decodeHtmlEntities(it.snippet.title),
+      channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: it.snippet.thumbnails.default.url
     }));
     currentMoodNextToken = data.nextPageToken || null;
@@ -2295,8 +2302,8 @@ async function loadMoreQuickPicks(){
     const data = await fetchYT(url);
     const more = (data.items||[]).map(it => ({
       id: it.id.videoId,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
+      title: decodeHtmlEntities(it.snippet.title),
+      channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: it.snippet.thumbnails.default.url
     }));
     currentMoodNextToken = data.nextPageToken || null;
@@ -2381,8 +2388,8 @@ async function showTopToday(){
     const data = await fetchYT(url);
     const tracks = (data.items||[]).map(it => ({
       id: it.id,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
+      title: decodeHtmlEntities(it.snippet.title),
+      channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: it.snippet.thumbnails.default.url
     }));
     localStorage.setItem('tc_top_cache', JSON.stringify({date:todayKey, tracks}));
@@ -2426,6 +2433,16 @@ function escapeHtml(s){
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function decodeHtmlEntities(s){
+  // YouTube's API returns titles/channel names with HTML entities already
+  // encoded (e.g. "&amp;" instead of "&"), so decode them once at ingestion
+  // instead of showing the literal entity text everywhere.
+  if(!s) return s;
+  const ta = document.createElement('textarea');
+  ta.innerHTML = s;
+  return ta.value;
 }
 
 /* ---------- Playback ---------- */
@@ -3030,11 +3047,11 @@ async function searchYoutubePlaylists(){
     }
     resultsEl.innerHTML = items.map(it => {
       const pid = it.id.playlistId;
-      const title = escapeHtml(it.snippet.title || 'Untitled playlist');
-      const channel = escapeHtml(it.snippet.channelTitle || '');
+      const title = escapeHtml(decodeHtmlEntities(it.snippet.title) || 'Untitled playlist');
+      const channel = escapeHtml(decodeHtmlEntities(it.snippet.channelTitle) || '');
       const thumb = (it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default) || {}).url || '';
       return `
-        <button class="yt-playlist-result" onclick="selectYtPlaylistResult('${escAttr(pid)}', '${escAttr(it.snippet.title || 'Imported playlist')}')">
+        <button class="yt-playlist-result" onclick="selectYtPlaylistResult('${escAttr(pid)}', '${escAttr(decodeHtmlEntities(it.snippet.title) || 'Imported playlist')}')">
           <img src="${thumb}" alt="">
           <div class="yt-playlist-result-meta">
             <div class="yt-playlist-result-title">${title}</div>
@@ -3071,12 +3088,12 @@ async function importPlaylistById(playlistId, suggestedName){
       const data = await fetchYT(url);
       const items = (data.items || []).filter(it =>
         it.snippet && it.snippet.resourceId && it.snippet.resourceId.videoId &&
-        it.snippet.title !== 'Private video' && it.snippet.title !== 'Deleted video'
+        decodeHtmlEntities(it.snippet.title) !== 'Private video' && decodeHtmlEntities(it.snippet.title) !== 'Deleted video'
       );
       allTracks = allTracks.concat(items.map(it => ({
         id: it.snippet.resourceId.videoId,
-        title: it.snippet.title,
-        channel: it.snippet.videoOwnerChannelTitle || it.snippet.channelTitle || '',
+        title: decodeHtmlEntities(it.snippet.title),
+        channel: decodeHtmlEntities(it.snippet.videoOwnerChannelTitle) || decodeHtmlEntities(it.snippet.channelTitle) || '',
         thumb: (it.snippet.thumbnails && (it.snippet.thumbnails.default || it.snippet.thumbnails.medium) || {}).url || ''
       })));
       pageToken = data.nextPageToken || '';
