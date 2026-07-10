@@ -1204,12 +1204,14 @@ async function fetchYT(baseUrl, maxRetries = 3){
       const isDailyQuota = reason === 'quotaExceeded' || reason === 'dailyLimitExceeded';
       const isRateLimited = res.status === 429 || reason === 'rateLimitExceeded' || reason === 'userRateLimitExceeded';
 
-      // Daily quota hit on this key — rotate to the next key, if we have one left to try.
-      if(isDailyQuota && keysTried < totalKeys - 1){
+      // Daily quota OR short-term rate limit hit — rotate to the next key first,
+      // since each key belongs to a separate project with its own separate limits.
+      if((isDailyQuota || isRateLimited) && keysTried < totalKeys - 1){
         keysTried++;
         currentKeyIndex = (currentKeyIndex + 1) % totalKeys;
         persistKeyIndex();
-        showToast(`That API key hit today's limit — switched to backup key ${currentKeyIndex + 1}/${totalKeys}.`, 'error');
+        const reasonLabel = isDailyQuota ? "hit today's limit" : 'is being rate-limited';
+        showToast(`That API key ${reasonLabel} — switched to backup key ${currentKeyIndex + 1}/${totalKeys}.`, 'error');
         attempt = 0;
         continue;
       }
