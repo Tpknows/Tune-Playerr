@@ -1163,8 +1163,37 @@ let isMuted = false;
 /* ---------- YouTube API fetch with retry/backoff, key rotation, and caching ---------- */
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-const ytCache = new Map(); // baseUrl -> {data, time}
+const YT_CACHE_STORAGE_KEY = 'tc_search_cache';
+const YT_CACHE_MAX_ENTRIES = 30;
 const YT_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+function loadYtCacheFromStorage(){
+  const map = new Map();
+  try{
+    const raw = JSON.parse(localStorage.getItem(YT_CACHE_STORAGE_KEY) || '{}');
+    const now = Date.now();
+    Object.entries(raw).forEach(([url, entry]) => {
+      if(entry && (now - entry.time) < YT_CACHE_TTL){
+        map.set(url, entry);
+      }
+    });
+  }catch(err){ /* corrupted cache — start fresh */ }
+  return map;
+}
+
+function persistYtCacheToStorage(){
+  try{
+    // Evict oldest entries beyond the cap before saving, so storage never grows unbounded.
+    if(ytCache.size > YT_CACHE_MAX_ENTRIES){
+      const sorted = [...ytCache.entries()].sort((a, b) => a[1].time - b[1].time);
+      const toRemove = sorted.slice(0, ytCache.size - YT_CACHE_MAX_ENTRIES);
+      toRemove.forEach(([url]) => ytCache.delete(url));
+    }
+    localStorage.setItem(YT_CACHE_STORAGE_KEY, JSON.stringify(Object.fromEntries(ytCache)));
+  }catch(err){ /* localStorage full or unavailable — cache still works in-memory */ }
+}
+
+const ytCache = loadYtCacheFromStorage(); // baseUrl -> {data, time}
 
 function buildKeyedUrl(baseUrl){
   const sep = baseUrl.includes('?') ? '&' : '?';
@@ -1230,6 +1259,7 @@ async function fetchYT(baseUrl, maxRetries = 3){
     }
 
     ytCache.set(baseUrl, {data, time: Date.now()});
+    persistYtCacheToStorage();
     return data;
   }
 }
@@ -1339,6 +1369,8 @@ function seek(e){
 let currentSearchQuery = null;
 let currentSearchNextToken = null;
 let searchLoadingMore = false;
+let searchPageCount = 0;
+const MAX_LOAD_MORE_PAGES = 3; // caps extra search calls per topic (search itself has a tight daily bucket)
 
 async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
@@ -1352,6 +1384,7 @@ async function doSearch(){
   renderLoading();
   currentSearchQuery = q;
   currentSearchNextToken = null;
+  searchPageCount = 0;
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(q)}`;
     const data = await fetchYT(url);
@@ -1371,6 +1404,11 @@ async function doSearch(){
 
 async function loadMoreSearch(){
   if(!currentSearchNextToken || searchLoadingMore) return;
+  if(searchPageCount >= MAX_LOAD_MORE_PAGES){
+    showToast("That's as far as this search goes for now — search has a tight daily limit, so try a new search instead.", 'error');
+    renderTrackList(`Results for "${currentSearchQuery}"`, `${queue.length} tracks found`, queue, {loadMore: null});
+    return;
+  }
   searchLoadingMore = true;
   const btn = document.getElementById('loadMoreBtn');
   if(btn) btn.textContent = 'Loading…';
@@ -1384,8 +1422,10 @@ async function loadMoreSearch(){
       thumb: it.snippet.thumbnails.default.url
     }));
     currentSearchNextToken = data.nextPageToken || null;
+    searchPageCount++;
     queue = queue.concat(more);
-    renderTrackList(`Results for "${currentSearchQuery}"`, `${queue.length} tracks found`, queue, {loadMore: currentSearchNextToken ? loadMoreSearch : null});
+    const canLoadMore = currentSearchNextToken && searchPageCount < MAX_LOAD_MORE_PAGES;
+    renderTrackList(`Results for "${currentSearchQuery}"`, `${queue.length} tracks found`, queue, {loadMore: canLoadMore ? loadMoreSearch : null});
   }catch(err){
     renderError(err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : err.message);
   }finally{
@@ -1618,6 +1658,7 @@ function renderMoodChips(){
 
 let currentMoodNextToken = null;
 let moodLoadingMore = false;
+let moodPageCount = 0;
 
 async function selectMood(index){
   activeMoodIndex = index;
@@ -1634,6 +1675,7 @@ async function selectMood(index){
   renderLoading();
   const mood = moodChips[index];
   currentMoodNextToken = null;
+  moodPageCount = 0;
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}`;
     const data = await fetchYT(url);
@@ -1654,6 +1696,12 @@ async function selectMood(index){
 
 async function loadMoreQuickPicks(){
   if(!currentMoodNextToken || moodLoadingMore) return;
+  if(moodPageCount >= MAX_LOAD_MORE_PAGES){
+    showToast("That's as far as this goes for now — search has a tight daily limit, so try another mood instead.", 'error');
+    currentMoodNextToken = null;
+    renderQuickPicks(moodChips[activeMoodIndex].label, queue);
+    return;
+  }
   moodLoadingMore = true;
   const btn = document.getElementById('loadMoreQpBtn');
   if(btn) btn.textContent = 'Loading…';
@@ -1668,6 +1716,8 @@ async function loadMoreQuickPicks(){
       thumb: it.snippet.thumbnails.default.url
     }));
     currentMoodNextToken = data.nextPageToken || null;
+    moodPageCount++;
+    if(moodPageCount >= MAX_LOAD_MORE_PAGES) currentMoodNextToken = null;
     queue = queue.concat(more);
     renderQuickPicks(mood.label, queue);
   }catch(err){
