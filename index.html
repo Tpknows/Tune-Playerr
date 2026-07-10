@@ -1264,7 +1264,8 @@ async function loadSharedApiPool(){
       });
     }
   }catch(err){
-    console.warn('Could not load shared API key pool — using local keys instead.', err);
+    showToast('Could not load the shared API key pool — using this device\'s local keys instead.', 'error');
+    console.warn('loadSharedApiPool failed:', err);
   }
 }
 
@@ -1277,7 +1278,8 @@ async function saveSharedApiPool(){
       updatedAt: Date.now()
     });
   }catch(err){
-    console.warn('Could not sync API key pool to the cloud — this device will keep working locally.', err);
+    showToast('Could not sync API keys to the cloud — saved locally only. Check your internet or Firestore rules.', 'error');
+    console.warn('saveSharedApiPool failed:', err);
   }
 }
 
