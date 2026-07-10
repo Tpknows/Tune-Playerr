@@ -236,37 +236,53 @@
   }
   .search-row button:hover{opacity:0.9;}
 
-  /* Mood chips — persistent quick-filter row */
+  /* Mood chips — scattered tag box */
   .mood-row{
     display:flex;
-    gap:10px;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    padding:16px 0 14px;
-    scrollbar-width:none;
-    mask-image:linear-gradient(to right, black calc(100% - 32px), transparent 100%);
-    -webkit-mask-image:linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:12px 10px;
+    padding:20px 22px;
+    margin:16px 0 20px;
+    border:1px solid var(--line);
+    border-radius:var(--radius-lg);
+    background:var(--surface);
   }
-  .mood-row::-webkit-scrollbar{display:none;}
   .mood-chip{
     flex-shrink:0;
-    padding:6px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:36px;
+    min-width:92px;
+    padding:0 18px;
     border-radius:999px;
     border:1px solid var(--line);
-    background:var(--surface);
+    background:var(--surface-hi);
     color:var(--text-dim);
     font-size:13px;
     font-family:inherit;
+    text-align:center;
     cursor:pointer;
     white-space:nowrap;
-    transition:color .15s, border-color .15s, background .15s;
+    box-shadow:0 1px 3px rgba(0,0,0,0.25);
+    transition:color .15s, border-color .15s, background .15s, transform .15s, box-shadow .15s;
+    transform:rotate(var(--tilt, 0deg));
   }
-  .mood-chip:hover{color:var(--text); border-color:var(--accent-line);}
+  .mood-chip:nth-child(5n+1){ --tilt:-1.5deg; }
+  .mood-chip:nth-child(5n+2){ --tilt:1deg; }
+  .mood-chip:nth-child(5n+3){ --tilt:-0.75deg; }
+  .mood-chip:nth-child(5n+4){ --tilt:1.25deg; }
+  .mood-chip:nth-child(5n+5){ --tilt:-1deg; }
+  .mood-chip:hover{color:var(--text); border-color:var(--accent-line); transform:rotate(0deg) translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,0.3);}
   .mood-chip.active{
     color:#fff;
     background:var(--accent-grad);
     border-color:transparent;
+    box-shadow:0 4px 14px rgba(88,56,214,0.4);
     font-weight:500;
+    transform:rotate(0deg);
   }
   .content{
     flex:1;
@@ -326,6 +342,7 @@
     gap:16px;
   }
   .library-card{
+    position:relative;
     display:flex;
     flex-direction:column;
     align-items:flex-start;
@@ -339,6 +356,23 @@
     transition:border-color .15s, transform .15s, background .15s;
   }
   .library-card:hover{border-color:var(--accent-line); background:var(--surface-hi); transform:translateY(-2px);}
+  .library-card-delete{
+    position:absolute; top:8px; right:8px;
+    width:24px; height:24px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%;
+    background:var(--surface-hi);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-size:13px;
+    line-height:1;
+    cursor:pointer;
+    opacity:0;
+    transition:opacity .15s, color .15s, border-color .15s, background .15s;
+  }
+  .library-card:hover .library-card-delete{opacity:1;}
+  .library-card-delete:hover{color:#fff; background:#ef4444; border-color:transparent;}
+  @media (hover:none){ .library-card-delete{opacity:1;} }
   .library-card-icon{
     width:44px; height:44px;
     display:flex; align-items:center; justify-content:center;
@@ -1013,8 +1047,8 @@
     .search-row{ max-width:none; flex:1; gap:8px; }
     .search-row input{ padding:10px 14px; font-size:13px; }
     .search-row button{ padding:0 16px; font-size:13px; }
-    .mood-row{ padding:12px 0 10px; gap:8px; }
-    .mood-chip{ padding:5px 12px; font-size:12px; }
+    .mood-row{ padding:14px 14px; margin:10px 0 16px; gap:8px; }
+    .mood-chip{ height:32px; min-width:76px; padding:0 12px; font-size:12px; }
 
     .content{ padding:14px 14px 132px; }
     .section-title{ font-size:18px; }
@@ -1124,10 +1158,9 @@
       <button class="new-playlist-btn" id="signInBtn" onclick="signInWithGoogle()">Sign in with Google</button>
     </div>
     <div class="nav-group">
-      <button class="nav-item" data-view="search" onclick="switchView('search')">Search</button>
+      <button class="nav-item" data-view="search" onclick="switchView('search')">Home</button>
       <button class="nav-item" data-view="library" onclick="showLibrary()">Library</button>
       <button class="nav-item" data-view="top" onclick="showTopToday()">Top 20 Today</button>
-      <button class="nav-item" data-view="opm" onclick="showOPM()">OPM</button>
       <button class="nav-item" data-view="recent" onclick="showRecent()">Recently played</button>
     </div>
   </div>
@@ -1268,6 +1301,18 @@
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeModal('addToFolderModal')">Cancel</button>
       <button class="btn-gold" onclick="confirmAddToFolder()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete playlist confirm modal -->
+<div class="modal-backdrop" id="deletePlaylistModal">
+  <div class="modal">
+    <h3>Delete "<span id="deletePlaylistName"></span>"?</h3>
+    <p style="font-size:13px; color:var(--text-dim); margin:-8px 0 16px;">Permanenteng mawawala ang mga saved tracks sa playlist na ito. Hindi na ito puwedeng bawiin.</p>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('deletePlaylistModal')">Cancel</button>
+      <button class="btn-gold" style="background:#ef4444;" onclick="confirmDeletePlaylist()">Delete</button>
     </div>
   </div>
 </div>
@@ -2028,13 +2073,21 @@ const moodChips = [
   {label:'Sleep', query:'sleep calm music mix'},
   {label:'OPM', query:'OPM Original Pilipino Music mix'}
 ];
-let activeMoodIndex = 0;
+let activeMoodIndex = null;
 
 function renderMoodChips(){
   const row = document.getElementById('moodRow');
   row.innerHTML = moodChips.map((m, i) => `
     <button class="mood-chip ${i===activeMoodIndex?'active':''}" onclick="selectMood(${i})">${escapeHtml(m.label)}</button>
   `).join('');
+}
+
+function showHomeIdle(){
+  currentView = {type:'search'};
+  renderMoodChips();
+  setActiveNav();
+  document.getElementById('content').innerHTML = `<div class="empty">Pick a vibe above to see picks.</div>`;
+  closeSidebarOnMobile();
 }
 
 let currentMoodNextToken = null;
@@ -2194,48 +2247,6 @@ async function showTopToday(){
 function renderTopToday(tracks){
   const today = new Date().toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
   renderTrackList('🔥 Top 20 Today', `Trending music right now — ${today}`, tracks, {bulkAdd:true});
-}
-
-async function showOPM(){
-  currentView = {type:'opm'};
-  setActiveNav();
-
-  const todayKey = new Date().toISOString().slice(0,10);
-  const cached = JSON.parse(localStorage.getItem('tc_opm_cache') || 'null');
-  if(cached && cached.date === todayKey){
-    queue = cached.tracks;
-    renderOPM(cached.tracks);
-    closeSidebarOnMobile();
-    return;
-  }
-
-  if(!apiKeys.length){
-    document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
-    closeSidebarOnMobile();
-    return;
-  }
-
-  renderLoading();
-  try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent('OPM songs Original Pilipino Music')}&regionCode=PH&relevanceLanguage=tl`;
-    const data = await fetchYT(url);
-    const tracks = (data.items||[]).map(it => ({
-      id: it.id.videoId,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
-      thumb: it.snippet.thumbnails.default.url
-    }));
-    localStorage.setItem('tc_opm_cache', JSON.stringify({date:todayKey, tracks}));
-    queue = tracks;
-    renderOPM(tracks);
-  }catch(err){
-    renderError(err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : err.message);
-  }
-  closeSidebarOnMobile();
-}
-
-function renderOPM(tracks){
-  renderTrackList('🇵🇭 OPM', `Original Pilipino Music — ${tracks.length} tracks`, tracks, {bulkAdd:true});
 }
 
 function closeSidebarOnMobile(){
@@ -2597,11 +2608,12 @@ function renderLibraryGrid(){
   const playlistCards = ungroupedNames.map(name => {
     const count = playlists[name].length;
     return `
-    <button class="library-card" onclick="showPlaylist('${escAttr(name)}')">
+    <div class="library-card" tabindex="0" role="button" onclick="showPlaylist('${escAttr(name)}')" onkeydown="if(event.key==='Enter')showPlaylist('${escAttr(name)}')">
+      <button class="library-card-delete" title="Delete playlist" onclick="event.stopPropagation(); openDeletePlaylistModal('${escAttr(name)}')">✕</button>
       <div class="library-card-icon">🎵</div>
       <div class="library-card-name">${escapeHtml(name)}</div>
       <div class="library-card-count">${count} track${count===1?'':'s'}</div>
-    </button>`;
+    </div>`;
   }).join('');
 
   const isEmpty = folderNames.length === 0 && ungroupedNames.length === 0;
@@ -2642,11 +2654,12 @@ function renderFolderView(folderName){
   const cards = names.map(name => {
     const count = playlists[name].length;
     return `
-    <button class="library-card" onclick="showPlaylist('${escAttr(name)}')">
+    <div class="library-card" tabindex="0" role="button" onclick="showPlaylist('${escAttr(name)}')" onkeydown="if(event.key==='Enter')showPlaylist('${escAttr(name)}')">
+      <button class="library-card-delete" title="Delete playlist" onclick="event.stopPropagation(); openDeletePlaylistModal('${escAttr(name)}')">✕</button>
       <div class="library-card-icon">🎵</div>
       <div class="library-card-name">${escapeHtml(name)}</div>
       <div class="library-card-count">${count} track${count===1?'':'s'}</div>
-    </button>`;
+    </div>`;
   }).join('');
   document.getElementById('content').innerHTML = `
     <button class="new-playlist-btn" style="margin-bottom:14px; border:none; padding:0; color:var(--text-dim);" onclick="showLibrary()">← Back to Library</button>
@@ -2680,6 +2693,33 @@ function deleteFolder(folderName){
   savePlaylists();
   showLibrary();
   showToast(`Na-delete ang folder na "${folderName}". Nanatili ang mga playlist mo sa Library.`, 'success');
+}
+
+let pendingDeletePlaylist = null;
+function openDeletePlaylistModal(name){
+  if(!playlists[name]) return;
+  pendingDeletePlaylist = name;
+  document.getElementById('deletePlaylistName').textContent = name;
+  document.getElementById('deletePlaylistModal').classList.add('open');
+}
+function confirmDeletePlaylist(){
+  const name = pendingDeletePlaylist;
+  if(!name || !playlists[name]) return;
+  delete playlists[name];
+  Object.keys(playlistFolders).forEach(folder => {
+    playlistFolders[folder] = playlistFolders[folder].filter(n => n !== name);
+  });
+  savePlaylists();
+  closeModal('deletePlaylistModal');
+  pendingDeletePlaylist = null;
+  if(currentView.type === 'playlist' && currentView.name === name){
+    showLibrary();
+  } else if(currentView.type === 'folder'){
+    renderFolderView(currentView.name);
+  } else {
+    showLibrary();
+  }
+  showToast(`Na-delete ang playlist na "${name}".`, 'success');
 }
 
 let pendingFolderTarget = null;
@@ -2874,12 +2914,21 @@ function showPlaylist(name, setNav=true){
   renderPlaylistNav();
   renderTrackList(name, `${tracks.length} saved tracks — drag ⠿ to reorder`, tracks, {draggable:true, playlistName:name});
   const content = document.getElementById('content');
+  const actionsRow = document.createElement('div');
+  actionsRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;';
   const backLink = document.createElement('button');
   backLink.className = 'new-playlist-btn';
-  backLink.style.cssText = 'margin-bottom:14px; border:none; padding:0; color:var(--text-dim);';
+  backLink.style.cssText = 'border:none; padding:0; color:var(--text-dim);';
   backLink.textContent = '← Back to Library';
   backLink.onclick = () => showLibrary();
-  content.insertBefore(backLink, content.firstChild);
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn-ghost';
+  deleteBtn.style.cssText = 'padding:6px 14px; border-radius:999px; border:none; cursor:pointer; font-size:12px; font-weight:600;';
+  deleteBtn.textContent = 'Delete playlist';
+  deleteBtn.onclick = () => openDeletePlaylistModal(name);
+  actionsRow.appendChild(backLink);
+  actionsRow.appendChild(deleteBtn);
+  content.insertBefore(actionsRow, content.firstChild);
   if(window.innerWidth <= 768) toggleSidebar(false);
 }
 
@@ -2958,7 +3007,8 @@ function toggleSidebar(force){
 /* ---------- Nav / view switching ---------- */
 function switchView(type){
   if(type === 'search'){
-    selectMood(activeMoodIndex);
+    if(activeMoodIndex === null){ showHomeIdle(); }
+    else { selectMood(activeMoodIndex); }
     return;
   }
   currentView = {type};
@@ -2977,7 +3027,7 @@ function setActiveNav(){
     document.querySelector('.nav-item[data-view="library"]')?.classList.add('active');
   }
   const moodRow = document.getElementById('moodRow');
-  if(moodRow) moodRow.style.display = (currentView.type === 'search') ? '' : 'none';
+  if(moodRow) moodRow.style.display = (currentView.type === 'search' || currentView.type === 'quickpicks') ? '' : 'none';
   renderPlaylistNav();
 }
 
@@ -3042,8 +3092,7 @@ function showToast(message, type='info', duration=4000){
 
 /* ---------- Init ---------- */
 renderPlaylistNav();
-renderMoodChips();
-selectMood(activeMoodIndex);
+showHomeIdle();
 document.getElementById('volSlider').value = savedVolume;
 updateVolumeIcon(savedVolume);
 </script>
