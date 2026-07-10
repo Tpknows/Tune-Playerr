@@ -938,11 +938,12 @@
 <!-- API key modal -->
 <div class="modal-backdrop" id="apiModal">
   <div class="modal">
-    <h3>YouTube Data API key</h3>
-    <input id="apiKeyInput" type="text" placeholder="Paste your API key here">
+    <h3>YouTube Data API keys</h3>
+    <textarea id="apiKeyInput" rows="4" placeholder="Paste one or more API keys — one per line" style="width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text); padding:10px 12px; border-radius:8px; font-size:13px; font-family:'JetBrains Mono', monospace; margin-bottom:12px; resize:vertical;"></textarea>
     <p class="setup-note">
-      Get a free key at <a href="https://console.cloud.google.com/apis/credentials" target="_blank">console.cloud.google.com</a> —
-      create a project, enable "YouTube Data API v3," then create an API key under Credentials.
+      Get free keys at <a href="https://console.cloud.google.com/apis/credentials" target="_blank">console.cloud.google.com</a> —
+      each Google Cloud project gets its own free 10,000/day quota. Add a few (one per line)
+      and the app will automatically switch to the next one when one runs out for the day.
       Stored only in this browser.
     </p>
     <div class="modal-actions">
@@ -1141,7 +1142,11 @@ if(firebaseReady){
 /* ---------- State ---------- */
 // Embedded default key — restricted to this site's domain in Google Cloud Console.
 const DEFAULT_YT_API_KEY = "AIzaSyCbnSlYoO8NGHqFtq4JpTqnAfdj5mg75dM";
-let apiKey = localStorage.getItem('tc_api_key') || DEFAULT_YT_API_KEY;
+// Embedded default key(s) — restricted to this site's domain in Google Cloud Console.
+// Extra keys (from separate free Google Cloud projects) rotate in automatically when one hits its daily quota.
+let apiKeys = JSON.parse(localStorage.getItem('tc_api_keys') || 'null') || [DEFAULT_YT_API_KEY];
+let currentKeyIndex = parseInt(localStorage.getItem('tc_key_index'), 10) || 0;
+if(currentKeyIndex >= apiKeys.length) currentKeyIndex = 0;
 let playlists = JSON.parse(localStorage.getItem('tc_playlists') || '{}');
 let currentView = {type:'search'}; // {type:'search'} | {type:'playlist', name}
 let queue = [];        // current list of tracks being browsed/played
@@ -1155,13 +1160,35 @@ let savedVolume = parseInt(localStorage.getItem('tc_volume'), 10);
 if(isNaN(savedVolume)) savedVolume = 80;
 let isMuted = false;
 
-/* ---------- YouTube API fetch with retry/backoff ---------- */
+/* ---------- YouTube API fetch with retry/backoff, key rotation, and caching ---------- */
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-async function fetchYT(url, maxRetries = 3){
+const ytCache = new Map(); // baseUrl -> {data, time}
+const YT_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+function buildKeyedUrl(baseUrl){
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  return `${baseUrl}${sep}key=${apiKeys[currentKeyIndex]}`;
+}
+
+function persistKeyIndex(){
+  localStorage.setItem('tc_key_index', String(currentKeyIndex));
+}
+
+async function fetchYT(baseUrl, maxRetries = 3){
+  // Serve from cache if we searched this exact query recently — saves quota entirely.
+  const cached = ytCache.get(baseUrl);
+  if(cached && (Date.now() - cached.time) < YT_CACHE_TTL){
+    return cached.data;
+  }
+
   let attempt = 0;
+  let keysTried = 0;
+  const totalKeys = apiKeys.length;
+
   while(true){
     let res, data;
+    const url = buildKeyedUrl(baseUrl);
     try{
       res = await fetch(url);
       data = await res.json();
@@ -1171,21 +1198,36 @@ async function fetchYT(url, maxRetries = 3){
       attempt++;
       continue;
     }
+
     if(data.error){
       const reason = (data.error.errors && data.error.errors[0] && data.error.errors[0].reason) || '';
       const isDailyQuota = reason === 'quotaExceeded' || reason === 'dailyLimitExceeded';
       const isRateLimited = res.status === 429 || reason === 'rateLimitExceeded' || reason === 'userRateLimitExceeded';
+
+      // Daily quota hit on this key — rotate to the next key, if we have one left to try.
+      if(isDailyQuota && keysTried < totalKeys - 1){
+        keysTried++;
+        currentKeyIndex = (currentKeyIndex + 1) % totalKeys;
+        persistKeyIndex();
+        showToast(`That API key hit today's limit — switched to backup key ${currentKeyIndex + 1}/${totalKeys}.`, 'error');
+        attempt = 0;
+        continue;
+      }
+
       if(isRateLimited && attempt < maxRetries){
         if(attempt > 0) showToast(`YouTube is busy, retrying… (${attempt+1}/${maxRetries})`, 'error');
         await sleep(600 * Math.pow(2, attempt) + Math.random()*250);
         attempt++;
         continue;
       }
+
       const err = new Error(data.error.message || 'API error');
       err.isDailyQuota = isDailyQuota;
       err.isRateLimited = isRateLimited;
       throw err;
     }
+
+    ytCache.set(baseUrl, {data, time: Date.now()});
     return data;
   }
 }
@@ -1299,7 +1341,7 @@ let searchLoadingMore = false;
 async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
   if(!q) return;
-  if(!apiKey){
+  if(!apiKeys.length){
     document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
     return;
   }
@@ -1309,7 +1351,7 @@ async function doSearch(){
   currentSearchQuery = q;
   currentSearchNextToken = null;
   try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(q)}&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(q)}`;
     const data = await fetchYT(url);
     const tracks = (data.items||[]).map(it => ({
       id: it.id.videoId,
@@ -1331,7 +1373,7 @@ async function loadMoreSearch(){
   const btn = document.getElementById('loadMoreBtn');
   if(btn) btn.textContent = 'Loading…';
   try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(currentSearchQuery)}&pageToken=${currentSearchNextToken}&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(currentSearchQuery)}&pageToken=${currentSearchNextToken}`;
     const data = await fetchYT(url);
     const more = (data.items||[]).map(it => ({
       id: it.id.videoId,
@@ -1581,7 +1623,7 @@ async function selectMood(index){
   renderMoodChips();
   setActiveNav();
 
-  if(!apiKey){
+  if(!apiKeys.length){
     document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
     closeSidebarOnMobile();
     return;
@@ -1591,7 +1633,7 @@ async function selectMood(index){
   const mood = moodChips[index];
   currentMoodNextToken = null;
   try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}`;
     const data = await fetchYT(url);
     const tracks = (data.items||[]).map(it => ({
       id: it.id.videoId,
@@ -1615,7 +1657,7 @@ async function loadMoreQuickPicks(){
   if(btn) btn.textContent = 'Loading…';
   const mood = moodChips[activeMoodIndex];
   try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}&pageToken=${currentMoodNextToken}&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}&pageToken=${currentMoodNextToken}`;
     const data = await fetchYT(url);
     const more = (data.items||[]).map(it => ({
       id: it.id.videoId,
@@ -1691,7 +1733,7 @@ async function showTopToday(){
     return;
   }
 
-  if(!apiKey){
+  if(!apiKeys.length){
     document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
     closeSidebarOnMobile();
     return;
@@ -1699,7 +1741,7 @@ async function showTopToday(){
 
   renderLoading();
   try{
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&videoCategoryId=10&regionCode=PH&maxResults=20&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&videoCategoryId=10&regionCode=PH&maxResults=20`;
     const data = await fetchYT(url);
     const tracks = (data.items||[]).map(it => ({
       id: it.id,
@@ -1734,7 +1776,7 @@ async function showOPM(){
     return;
   }
 
-  if(!apiKey){
+  if(!apiKeys.length){
     document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
     closeSidebarOnMobile();
     return;
@@ -1742,7 +1784,7 @@ async function showOPM(){
 
   renderLoading();
   try{
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent('OPM songs Original Pilipino Music')}&regionCode=PH&relevanceLanguage=tl&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent('OPM songs Original Pilipino Music')}&regionCode=PH&relevanceLanguage=tl`;
     const data = await fetchYT(url);
     const tracks = (data.items||[]).map(it => ({
       id: it.id.videoId,
@@ -2166,16 +2208,21 @@ function handleLogoClick(){
 
 /* ---------- API key modal ---------- */
 function openApiModal(){
-  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('apiKeyInput').value = apiKeys.join('\n');
   document.getElementById('apiModal').classList.add('open');
 }
 function saveApiKey(){
-  apiKey = document.getElementById('apiKeyInput').value.trim();
-  localStorage.setItem('tc_api_key', apiKey);
+  const lines = document.getElementById('apiKeyInput').value
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean);
+  apiKeys = lines.length ? lines : [DEFAULT_YT_API_KEY];
+  currentKeyIndex = 0;
+  localStorage.setItem('tc_api_keys', JSON.stringify(apiKeys));
+  localStorage.setItem('tc_key_index', '0');
   closeModal('apiModal');
-  if(apiKey){
-    document.getElementById('content').innerHTML = `<div class="empty">API key saved. Try searching for a track above.</div>`;
-  }
+  showToast(`Saved ${apiKeys.length} API key${apiKeys.length > 1 ? 's' : ''}.`, 'success');
+  document.getElementById('content').innerHTML = `<div class="empty">API keys saved. Try searching for a track above.</div>`;
 }
 
 function closeModal(id){
