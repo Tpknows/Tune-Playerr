@@ -222,7 +222,41 @@
     border-bottom:none;
   }
   .topbar-row{display:flex; align-items:center; border-bottom:1px solid var(--line); padding-bottom:16px;}
-  .search-row{display:flex; gap:10px; max-width:640px; flex:1; align-items:center;}
+  .search-row{display:flex; gap:10px; max-width:640px; flex:1; align-items:center; position:relative;}
+  .search-suggestions{
+    display:none;
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    right:0;
+    background:var(--surface-hi);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    box-shadow:0 12px 30px rgba(0,0,0,0.4);
+    max-height:340px;
+    overflow-y:auto;
+    z-index:50;
+  }
+  .search-suggestions.open{display:block;}
+  .suggestion-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px;
+    cursor:pointer;
+    border-bottom:1px solid var(--line);
+    text-align:left;
+    background:none;
+    border-left:none; border-right:none; border-top:none;
+    width:100%;
+    color:var(--text);
+  }
+  .suggestion-row:last-child{border-bottom:none;}
+  .suggestion-row:hover, .suggestion-row.active{background:var(--surface);}
+  .suggestion-thumb{width:32px; height:32px; border-radius:4px; object-fit:cover; flex-shrink:0; background:var(--bg);}
+  .suggestion-text{min-width:0;}
+  .suggestion-title{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .suggestion-artist{font-size:11px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .search-row input{
     flex:1;
     background:var(--surface);
@@ -1300,8 +1334,9 @@
         <button class="nav-arrow-btn" id="navBackBtn" onclick="navBack()" aria-label="Back" title="Back" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <button class="nav-arrow-btn" id="navForwardBtn" onclick="navForward()" aria-label="Forward" title="Forward" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
         <div class="search-row">
-          <input id="searchInput" type="text" placeholder="Search for tracks, artists" onkeydown="if(event.key==='Enter')doSearch()">
+          <input id="searchInput" type="text" placeholder="Search for tracks, artists" autocomplete="off" onkeydown="handleSearchInputKeydown(event)" oninput="handleSearchInputChange()" onblur="scheduleHideSuggestions()">
           <button onclick="doSearch()">Search</button>
+          <div class="search-suggestions" id="searchSuggestions"></div>
         </div>
         <button class="shortcuts-btn" onclick="openShortcutsModal()" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
         <button class="profile-btn" id="profileBtn" onclick="toggleSidebar()" aria-label="Account" title="Account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
@@ -1954,6 +1989,116 @@ let searchLoadingMore = false;
 let searchPageCount = 0;
 const MAX_LOAD_MORE_PAGES = 3; // caps extra search calls per topic (search itself has a tight daily bucket)
 
+/* ---------- Search suggestions (iTunes Search API — free, no key, no quota) ---------- */
+let suggestionsDebounceTimer = null;
+let suggestionsAbortController = null;
+let currentSuggestions = [];
+let activeSuggestionIndex = -1;
+
+function handleSearchInputChange(){
+  const q = document.getElementById('searchInput').value.trim();
+  clearTimeout(suggestionsDebounceTimer);
+  if(q.length < 2){
+    hideSuggestions();
+    return;
+  }
+  suggestionsDebounceTimer = setTimeout(() => fetchItunesSuggestions(q), 300);
+}
+
+async function fetchItunesSuggestions(q){
+  if(suggestionsAbortController) suggestionsAbortController.abort();
+  suggestionsAbortController = new AbortController();
+  try{
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=6`;
+    const res = await fetch(url, {signal: suggestionsAbortController.signal});
+    const data = await res.json();
+    currentSuggestions = (data.results || []).map(r => ({
+      title: r.trackName || '',
+      artist: r.artistName || '',
+      thumb: r.artworkUrl60 || ''
+    })).filter(s => s.title);
+    renderSuggestions();
+  }catch(err){
+    if(err.name !== 'AbortError') console.warn('iTunes suggestions failed:', err);
+  }
+}
+
+function renderSuggestions(){
+  const box = document.getElementById('searchSuggestions');
+  activeSuggestionIndex = -1;
+  if(!currentSuggestions.length){
+    hideSuggestions();
+    return;
+  }
+  box.innerHTML = currentSuggestions.map((s, i) => `
+    <button type="button" class="suggestion-row" data-index="${i}" onmousedown="event.preventDefault(); selectSuggestion(${i})">
+      ${s.thumb ? `<img class="suggestion-thumb" src="${escAttr(s.thumb)}" alt="">` : `<div class="suggestion-thumb"></div>`}
+      <div class="suggestion-text">
+        <div class="suggestion-title">${escapeHtml(s.title)}</div>
+        <div class="suggestion-artist">${escapeHtml(s.artist)}</div>
+      </div>
+    </button>
+  `).join('');
+  box.classList.add('open');
+}
+
+function hideSuggestions(){
+  currentSuggestions = [];
+  activeSuggestionIndex = -1;
+  const box = document.getElementById('searchSuggestions');
+  box.classList.remove('open');
+  box.innerHTML = '';
+}
+
+function scheduleHideSuggestions(){
+  // small delay so a click on a suggestion (onmousedown) registers before blur hides the list
+  setTimeout(hideSuggestions, 150);
+}
+
+function selectSuggestion(index){
+  const s = currentSuggestions[index];
+  if(!s) return;
+  const query = s.artist ? `${s.artist} - ${s.title}` : s.title;
+  document.getElementById('searchInput').value = query;
+  hideSuggestions();
+  doSearch();
+}
+
+function handleSearchInputKeydown(event){
+  const box = document.getElementById('searchSuggestions');
+  const isOpen = box.classList.contains('open');
+  if(event.key === 'Enter'){
+    if(isOpen && activeSuggestionIndex >= 0){
+      event.preventDefault();
+      selectSuggestion(activeSuggestionIndex);
+      return;
+    }
+    hideSuggestions();
+    doSearch();
+    return;
+  }
+  if(event.key === 'Escape'){
+    hideSuggestions();
+    return;
+  }
+  if(!isOpen || !currentSuggestions.length) return;
+  if(event.key === 'ArrowDown'){
+    event.preventDefault();
+    activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, currentSuggestions.length - 1);
+    updateActiveSuggestionHighlight();
+  } else if(event.key === 'ArrowUp'){
+    event.preventDefault();
+    activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, -1);
+    updateActiveSuggestionHighlight();
+  }
+}
+
+function updateActiveSuggestionHighlight(){
+  document.querySelectorAll('.suggestion-row').forEach((el, i) => {
+    el.classList.toggle('active', i === activeSuggestionIndex);
+  });
+}
+
 async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
   if(!q) return;
@@ -2253,6 +2398,34 @@ function showHomeIdle(){
 let currentMoodNextToken = null;
 let moodLoadingMore = false;
 let moodPageCount = 0;
+const MOOD_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — moods like "OPM" don't need to be fresher than that
+
+async function loadMoodCache(moodLabel){
+  if(!firebaseReady || !fbDb) return null;
+  try{
+    const doc = await fbDb.collection('moodCache').doc(moodLabel).get();
+    if(doc.exists){
+      const data = doc.data();
+      if(data.updatedAt && (Date.now() - data.updatedAt) < MOOD_CACHE_TTL_MS){
+        return data;
+      }
+    }
+  }catch(err){
+    console.warn('loadMoodCache failed:', err);
+  }
+  return null;
+}
+
+async function saveMoodCache(moodLabel, tracks, nextPageToken){
+  if(!firebaseReady || !fbDb) return;
+  try{
+    await fbDb.collection('moodCache').doc(moodLabel).set({
+      tracks, nextPageToken: nextPageToken || null, updatedAt: Date.now()
+    });
+  }catch(err){
+    console.warn('saveMoodCache failed:', err);
+  }
+}
 
 async function selectMood(index){
   activeMoodIndex = index;
@@ -2269,6 +2442,19 @@ async function selectMood(index){
   const mood = moodChips[index];
   currentMoodNextToken = null;
   moodPageCount = 0;
+
+  // First page for any given mood barely changes day to day, so check a
+  // shared 24h Firestore cache before spending a 100-unit search.list call —
+  // whichever user hits it first "pays", everyone else that day rides free.
+  const cached = await loadMoodCache(mood.label);
+  if(cached){
+    currentMoodNextToken = cached.nextPageToken || null;
+    queue = cached.tracks;
+    renderQuickPicks(mood.label, cached.tracks);
+    closeSidebarOnMobile();
+    return;
+  }
+
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}`;
     const data = await fetchYT(url);
@@ -2281,6 +2467,7 @@ async function selectMood(index){
     currentMoodNextToken = data.nextPageToken || null;
     queue = tracks;
     renderQuickPicks(mood.label, tracks);
+    saveMoodCache(mood.label, tracks, currentMoodNextToken);
   }catch(err){
     renderError(err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : err.message);
   }
