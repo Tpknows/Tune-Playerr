@@ -504,7 +504,7 @@
   .library-empty-note{color:var(--text-dim); font-size:13px; margin-top:6px;}
   .track-row{
     display:grid;
-    grid-template-columns:40px 1fr auto auto auto;
+    grid-template-columns:40px 1fr auto auto auto auto;
     align-items:center;
     gap:14px;
     padding:9px 8px;
@@ -879,6 +879,7 @@
     border-top:none;
   }
   .now-playing.fullscreen .np-track{
+    grid-area:auto;
     flex-direction:column;
     text-align:center;
     gap:24px;
@@ -897,14 +898,14 @@
   }
   .now-playing.fullscreen .np-title{font-size:20px; white-space:normal; max-width:60vw;}
   .now-playing.fullscreen .np-channel{font-size:14px;}
-  .now-playing.fullscreen .np-controls{width:100%; max-width:420px;}
+  .now-playing.fullscreen .np-controls{grid-area:auto; width:100%; max-width:420px;}
   .now-playing.fullscreen .np-buttons{gap:28px;}
   .now-playing.fullscreen .np-buttons button{width:44px; height:44px;}
   .now-playing.fullscreen .np-buttons button svg{width:22px; height:22px;}
   .now-playing.fullscreen .np-play{width:60px !important; height:60px !important;}
   .now-playing.fullscreen .np-play svg{width:26px !important; height:26px !important;}
   .now-playing.fullscreen .np-progress{font-size:12px;}
-  .now-playing.fullscreen .np-side{width:100%; max-width:420px; justify-content:center; gap:28px;}
+  .now-playing.fullscreen .np-side{grid-area:auto; width:100%; max-width:420px; justify-content:center; gap:28px;}
   .now-playing.fullscreen .np-volume{display:flex !important;}
 
   .import-yt-section{
@@ -1220,7 +1221,7 @@
 
     /* Track rows: compact, minimal chrome */
     .track-row{
-      grid-template-columns:40px 1fr auto auto;
+      grid-template-columns:40px 1fr auto auto auto;
       gap:10px;
       padding:9px 6px;
     }
@@ -2552,11 +2553,16 @@ function playAllQuickPicks(){
 }
 
 /* ---------- Top 20 of the day ---------- */
+function localDateKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 async function showTopToday(){
   currentView = {type:'top'};
   setActiveNav();
 
-  const todayKey = new Date().toISOString().slice(0,10);
+  const todayKey = localDateKey();
   const cached = JSON.parse(localStorage.getItem('tc_top_cache') || 'null');
   if(cached && cached.date === todayKey){
     queue = cached.tracks;
