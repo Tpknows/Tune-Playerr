@@ -23,9 +23,9 @@
     --line:#242430;
     --text:#f4f3f7;
     --text-dim:#8d8b9a;
-    --accent:#1ed760;
-    --accent-2:#1db954;
-    --accent-grad:linear-gradient(135deg, #1ed760, #17a84a);
+    --accent:#8b5cf6;
+    --accent-2:#3b82f6;
+    --accent-grad:linear-gradient(135deg, var(--accent), var(--accent-2));
     --accent-soft:rgba(30,215,96,0.14);
     --accent-line:rgba(30,215,96,0.35);
     --radius-sm:6px;
@@ -73,7 +73,7 @@
     border-radius:10px;
     flex-shrink:0;
     display:block;
-    box-shadow:0 0 0 1px var(--accent-line), 0 6px 18px rgba(20,160,80,0.35);
+    box-shadow:0 0 0 1px var(--accent-line), 0 6px 18px rgba(88,56,214,0.35);
   }
   .brand-text{
     display:flex;
@@ -206,7 +206,7 @@
     font-weight:600;
     text-align:center;
     padding:9px 10px;
-    box-shadow:0 4px 14px rgba(20,160,80,0.3);
+    box-shadow:0 4px 14px rgba(88,56,214,0.3);
   }
   #signInBtn:hover{color:#fff; opacity:0.92;}
 
@@ -328,7 +328,7 @@
   .mood-chip:hover::before{ opacity:0.28; }
   .mood-chip.active{
     border-color:var(--accent-line);
-    box-shadow:0 0 0 2px var(--accent-line), 0 4px 18px rgba(20,160,80,0.3);
+    box-shadow:0 0 0 2px var(--accent-line), 0 4px 18px rgba(88,56,214,0.3);
   }
   .mood-chip.active .mood-label{ color:var(--accent); }
   .genre-row{
@@ -850,7 +850,7 @@
   }
   .disc-wrap.spinning{
     opacity:1;
-    box-shadow:0 0 0 1px var(--accent-line), 0 0 16px rgba(20,160,80,0.45);
+    box-shadow:0 0 0 1px var(--accent-line), 0 0 16px rgba(88,56,214,0.45);
     animation:disc-spin 6s linear infinite;
   }
   @keyframes disc-spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
@@ -882,7 +882,7 @@
     width:38px !important; height:38px !important;
     border-radius:50%;
     display:flex; align-items:center; justify-content:center;
-    box-shadow:0 4px 14px rgba(20,160,80,0.4);
+    box-shadow:0 4px 14px rgba(88,56,214,0.4);
     transition:transform .12s, opacity .15s;
   }
   .np-play:hover{opacity:0.92; transform:scale(1.04);}
@@ -1398,7 +1398,7 @@
     <div class="nav-group">
       <button class="nav-item" data-view="search" onclick="switchView('search')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Home</span></button>
       <button class="nav-item" data-view="library" onclick="showLibrary()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>Library</span></button>
-      <button class="nav-item" data-view="top" onclick="showTopToday()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Top 20 Today</span></button>
+      <button class="nav-item" data-view="top" onclick="showMostPopular()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Most Popular</span></button>
       <button class="nav-item" data-view="recent" onclick="showRecent()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Recently played</span></button>
     </div>
   </div>
@@ -1419,7 +1419,7 @@
       </div>
       <div class="tab-row" id="tabRow">
         <button class="nav-item" data-view="search" onclick="switchView('search')">Home</button>
-        <button class="nav-item" data-view="top" onclick="showTopToday()">Top 20 Today</button>
+        <button class="nav-item" data-view="top" onclick="showMostPopular()">Most Popular</button>
         <button class="nav-item" data-view="recent" onclick="showRecent()">Recently played</button>
       </div>
     </div>
@@ -1982,6 +1982,8 @@ function loadYT(){
   tag.src = "https://www.youtube.com/iframe_api";
   document.body.appendChild(tag);
 }
+let pendingResume = null; // {id, position} — set from a previous session's saved playback
+
 window.onYouTubeIframeAPIReady = function(){
   player = new YT.Player('ytplayer', {
     height:'2', width:'2',
@@ -1993,6 +1995,10 @@ window.onYouTubeIframeAPIReady = function(){
         const slider = document.getElementById('volSlider');
         if(slider) slider.value = savedVolume;
         updateVolumeIcon(savedVolume);
+        if(pendingResume){
+          player.cueVideoById(pendingResume.id, pendingResume.position);
+          pendingResume = null;
+        }
       },
       onStateChange: onPlayerStateChange
     }
@@ -2053,6 +2059,7 @@ function updateMediaSessionPlaybackState(ytState){
   else if(ytState === YT.PlayerState.PAUSED) navigator.mediaSession.playbackState = 'paused';
 }
 
+let posSaveCounter = 0;
 setInterval(()=>{
   if(player && playerReady && player.getCurrentTime){
     const cur = player.getCurrentTime() || 0;
@@ -2060,6 +2067,11 @@ setInterval(()=>{
     document.getElementById('npCurrent').textContent = fmtTime(cur);
     document.getElementById('npDuration').textContent = fmtTime(dur);
     document.getElementById('npBarFill').style.width = dur ? (cur/dur*100)+'%' : '0%';
+    posSaveCounter++;
+    if(posSaveCounter >= 6){ // ~3s at this interval's rate
+      posSaveCounter = 0;
+      if(currentTrack) localStorage.setItem('tc_last_position', String(cur));
+    }
   }
 }, 500);
 
@@ -2486,14 +2498,12 @@ function moodChipsGridHtml(){
 function showHomeIdle(){
   currentView = {type:'search'};
   activeMoodIndex = null;
+  heroOverrideTracks = null;
+  heroIndex = 0;
   setActiveNav();
   document.getElementById('content').innerHTML = `
     <div id="heroSlot">${heroCarouselHtml()}</div>
-    <div class="genre-row" id="genreRow">${genrePillsHtml()}</div>
-    <div class="mood-picker">
-      <div class="mood-picker-title">Pick a vibe</div>
-      <div class="mood-row">${moodChipsGridHtml()}</div>
-    </div>`;
+    <div class="genre-row" id="genreRow">${genrePillsHtml()}</div>`;
   closeSidebarOnMobile();
 }
 
@@ -2634,14 +2644,16 @@ function genrePillsHtml(){
   `).join('');
 }
 
-/* ---------- Hero carousel (Home) — surfaces recent tracks, official YouTube links only ---------- */
+/* ---------- Hero carousel (Home) — shows recent tracks by default, or a genre's results when one is picked ---------- */
 let heroIndex = 0;
+let heroOverrideTracks = null; // set when a genre is selected; null = show recentTracks
 function heroCarouselHtml(){
-  if(!recentTracks.length) return '';
-  const n = recentTracks.length;
-  const centerT = recentTracks[heroIndex % n];
-  const leftT = n > 1 ? recentTracks[(heroIndex - 1 + n) % n] : null;
-  const rightT = n > 1 ? recentTracks[(heroIndex + 1) % n] : null;
+  const source = heroOverrideTracks || recentTracks;
+  if(!source.length) return '';
+  const n = source.length;
+  const centerT = source[heroIndex % n];
+  const leftT = n > 1 ? source[(heroIndex - 1 + n) % n] : null;
+  const rightT = n > 1 ? source[(heroIndex + 1) % n] : null;
 
   function cardHtml(t, cls, onclickJs){
     if(!t) return '';
@@ -2662,16 +2674,18 @@ function heroCarouselHtml(){
 }
 
 function shiftHero(delta){
-  if(!recentTracks.length) return;
-  heroIndex = (heroIndex + delta + recentTracks.length) % recentTracks.length;
+  const source = heroOverrideTracks || recentTracks;
+  if(!source.length) return;
+  heroIndex = (heroIndex + delta + source.length) % source.length;
   const el = document.getElementById('heroSlot');
   if(el) el.innerHTML = heroCarouselHtml();
 }
 
 function playHeroCenter(){
-  if(!recentTracks.length) return;
-  queue = recentTracks;
-  playFromQueue(heroIndex % recentTracks.length);
+  const source = heroOverrideTracks || recentTracks;
+  if(!source.length) return;
+  queue = source;
+  playFromQueue(heroIndex % source.length);
 }
 
 async function loadGenreCache(label){
@@ -2715,18 +2729,22 @@ async function selectGenre(label){
   const genre = genreChips.find(g => g.label === label);
   currentView = {type:'genre', label};
   setActiveNav();
-  renderLoading();
 
+  const heroEl = document.getElementById('heroSlot');
   if(!apiKeys.length){
-    document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
+    if(heroEl) heroEl.innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
     return;
   }
+
+  if(heroEl) heroEl.innerHTML = `<div class="empty">Loading ${escapeHtml(label)}…</div>`;
 
   // Same "first one pays, everyone else that day rides free" cache as moods
   const cached = await loadGenreCache(label);
   if(cached){
+    heroOverrideTracks = cached.tracks;
+    heroIndex = 0;
     queue = cached.tracks;
-    renderTrackList(label, `${cached.tracks.length} tracks`, cached.tracks);
+    if(heroEl) heroEl.innerHTML = heroCarouselHtml();
     return;
   }
 
@@ -2739,11 +2757,13 @@ async function selectGenre(label){
       channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
     })));
+    heroOverrideTracks = tracks;
+    heroIndex = 0;
     queue = tracks;
-    renderTrackList(label, `${tracks.length} tracks`, tracks);
+    if(heroEl) heroEl.innerHTML = heroCarouselHtml();
     saveGenreCache(label, tracks);
   }catch(err){
-    renderError(err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : err.message);
+    if(heroEl) heroEl.innerHTML = `<div class="empty">${err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -2792,18 +2812,9 @@ function localDateKey(){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-async function showTopToday(){
+async function showMostPopular(){
   currentView = {type:'top'};
   setActiveNav();
-
-  const todayKey = localDateKey();
-  const cached = JSON.parse(localStorage.getItem('tc_top_cache') || 'null');
-  if(cached && cached.date === todayKey){
-    queue = cached.tracks;
-    renderTopToday(cached.tracks);
-    closeSidebarOnMobile();
-    return;
-  }
 
   if(!apiKeys.length){
     document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
@@ -2821,18 +2832,17 @@ async function showTopToday(){
       channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
     }));
-    localStorage.setItem('tc_top_cache', JSON.stringify({date:todayKey, tracks}));
     queue = tracks;
-    renderTopToday(tracks);
+    renderMostPopular(tracks);
   }catch(err){
     renderError(err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : err.message);
   }
   closeSidebarOnMobile();
 }
 
-function renderTopToday(tracks){
+function renderMostPopular(tracks){
   const today = new Date().toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
-  renderTrackList('🔥 Top 20 Today', `Trending music right now — ${today}`, tracks, {bulkAdd:true});
+  renderTrackList('🔥 Most Popular', `Trending music right now — ${today}`, tracks, {bulkAdd:true});
 }
 
 function closeSidebarOnMobile(){
@@ -2892,11 +2902,29 @@ function loadCurrentTrack(){
   if(player && playerReady){
     player.loadVideoById(currentTrack.id);
   }
+  localStorage.setItem('tc_last_track', JSON.stringify(currentTrack));
+  localStorage.setItem('tc_last_position', '0');
   updateMediaSessionMetadata(currentTrack);
   addToRecent(currentTrack);
   refreshCurrentView();
   const qp = document.getElementById('queuePanel');
   if(qp && qp.classList.contains('open')) renderQueuePanel();
+}
+
+function restoreLastTrackUI(){
+  const savedTrack = JSON.parse(localStorage.getItem('tc_last_track') || 'null');
+  if(!savedTrack || !savedTrack.id) return;
+  const savedPos = parseFloat(localStorage.getItem('tc_last_position') || '0') || 0;
+  currentTrack = savedTrack;
+  queue = [savedTrack];
+  currentIndex = 0;
+  pendingResume = {id: savedTrack.id, position: savedPos};
+  document.getElementById('npTitle').textContent = savedTrack.title;
+  document.getElementById('npChannel').textContent = savedTrack.channel;
+  document.getElementById('npThumb').src = savedTrack.thumb;
+  document.getElementById('npAddBtn').disabled = false;
+  document.getElementById('npWatchBtn').disabled = false;
+  updateMediaSessionMetadata(savedTrack);
 }
 
 function togglePlay(){
@@ -3710,7 +3738,7 @@ function replayView(view){
       case 'search': showHomeIdle(); break;
       case 'quickpicks': selectMood(view.moodIndex); break;
       case 'library': showLibrary(); break;
-      case 'top': showTopToday(); break;
+      case 'top': showMostPopular(); break;
       case 'recent': showRecent(); break;
       case 'playlist': showPlaylist(view.name); break;
       case 'folder': showFolder(view.name); break;
@@ -3797,6 +3825,7 @@ function showToast(message, type='info', duration=4000){
 /* ---------- Init ---------- */
 renderPlaylistNav();
 showHomeIdle();
+restoreLastTrackUI();
 document.getElementById('volSlider').value = savedVolume;
 updateVolumeIcon(savedVolume);
 </script>
