@@ -283,54 +283,54 @@
   }
   .search-row button:hover{opacity:0.9;}
 
-  /* Mood chips — scattered tag box */
+  /* Mood cards — grid layout */
   .mood-row{
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    justify-content:center;
-    gap:12px 10px;
-    padding:20px 22px;
-    margin:16px 0 20px;
-    border:1px solid var(--line);
-    border-radius:var(--radius-lg);
-    background:var(--surface);
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+    margin:0 0 20px;
   }
   .mood-chip{
-    flex-shrink:0;
     display:flex;
-    align-items:center;
-    justify-content:center;
-    height:36px;
-    min-width:92px;
-    padding:0 18px;
-    border-radius:999px;
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:flex-end;
+    height:80px;
+    padding:12px 14px;
+    border-radius:var(--radius);
     border:1px solid var(--line);
     background:var(--surface-hi);
-    color:var(--text-dim);
+    color:var(--text);
     font-size:13px;
+    font-weight:600;
     font-family:inherit;
-    text-align:center;
+    text-align:left;
     cursor:pointer;
     white-space:nowrap;
-    box-shadow:0 1px 3px rgba(0,0,0,0.25);
-    transition:color .15s, border-color .15s, background .15s, transform .15s, box-shadow .15s;
-    transform:rotate(var(--tilt, 0deg));
+    position:relative;
+    overflow:hidden;
+    transition:border-color .18s, box-shadow .18s, transform .15s;
   }
-  .mood-chip:nth-child(5n+1){ --tilt:-1.5deg; }
-  .mood-chip:nth-child(5n+2){ --tilt:1deg; }
-  .mood-chip:nth-child(5n+3){ --tilt:-0.75deg; }
-  .mood-chip:nth-child(5n+4){ --tilt:1.25deg; }
-  .mood-chip:nth-child(5n+5){ --tilt:-1deg; }
-  .mood-chip:hover{color:var(--text); border-color:var(--accent-line); transform:rotate(0deg) translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,0.3);}
+  .mood-chip .mood-emoji{
+    font-size:22px;
+    margin-bottom:6px;
+    line-height:1;
+  }
+  .mood-chip::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:var(--mood-color, rgba(255,255,255,0.04));
+    opacity:0.18;
+    transition:opacity .18s;
+  }
+  .mood-chip:hover{ border-color:var(--accent-line); box-shadow:0 4px 14px rgba(0,0,0,0.35); transform:translateY(-2px); }
+  .mood-chip:hover::before{ opacity:0.28; }
   .mood-chip.active{
-    color:#0a0a0a;
-    background:var(--accent-grad);
-    border-color:transparent;
-    box-shadow:0 4px 14px rgba(20,160,80,0.4);
-    font-weight:700;
-    transform:rotate(0deg);
+    border-color:var(--accent-line);
+    box-shadow:0 0 0 2px var(--accent-line), 0 4px 18px rgba(20,160,80,0.3);
   }
+  .mood-chip.active .mood-label{ color:var(--accent); }
   .genre-row{
     display:flex;
     gap:8px;
@@ -481,14 +481,15 @@
   }
   .hero-card-play svg{width:16px; height:16px; margin-left:2px;}
   .mood-picker{
-    max-width:640px;
-    margin:32px auto 0;
+    margin:24px 0 0;
   }
   .mood-picker-title{
-    font-size:22px;
+    font-size:14px;
     font-weight:600;
-    text-align:center;
-    margin-bottom:18px;
+    text-transform:uppercase;
+    letter-spacing:1.2px;
+    color:var(--text-dim);
+    margin-bottom:12px;
     font-family:'Inter', sans-serif;
   }
   .shortcuts-list{display:flex; flex-direction:column; gap:10px; margin:16px 0;}
@@ -1277,12 +1278,13 @@
     .search-row button{ display:none; }
     .search-row input{ padding:10px 14px; font-size:13px; }
     .search-row button{ padding:0 16px; font-size:13px; }
-    .mood-row{ padding:14px 14px; margin:10px 0 16px; gap:8px; }
-    .mood-chip{ height:32px; min-width:76px; padding:0 12px; font-size:12px; }
+    .mood-row{ grid-template-columns:repeat(3, 1fr); gap:8px; margin:0 0 14px; }
+    .mood-chip{ height:70px; padding:10px 12px; }
+    .mood-chip .mood-emoji{ font-size:18px; margin-bottom:4px; }
     .tab-row{ gap:16px; padding-top:10px; }
     .tab-row .nav-item{ font-size:13px; padding-bottom:10px; }
-    .mood-picker{ margin:16px auto 0; }
-    .mood-picker-title{ font-size:18px; margin-bottom:14px; }
+    .mood-picker{ margin:16px 0 0; }
+    .mood-picker-title{ font-size:11px; margin-bottom:10px; }
     .track-list.grid-columns{ column-count:1; }
     .nav-arrow-btn{ display:none; }
 
@@ -1794,6 +1796,26 @@ let savedVolume = parseInt(localStorage.getItem('tc_volume'), 10);
 if(isNaN(savedVolume)) savedVolume = 80;
 let isMuted = false;
 
+/* ---------- Filter out DJ mixes, compilations, and non-single tracks ---------- */
+const MIX_KEYWORDS = [
+  /\b(mix|mixes|megamix|mashup|mashups|medley|medleys)\b/i,
+  /\b(compilation|compil)\b/i,
+  /\b(vol\.|volume|part|pt\.)\s*\d+/i,
+  /\bNon[- ]?Stop\b/i,
+  /\b\d+\s*(songs?|tracks?|hits?)\b/i,
+  /\bPlaylist\b/i,
+  /\bDJ\s+Set\b/i,
+  /\bTop\s+\d+\b/i,
+  /\bBest of\b/i,
+  /\bGreatest Hits\b/i,
+];
+function isMixOrCompilation(title){
+  return MIX_KEYWORDS.some(re => re.test(title));
+}
+function filterSingleTracks(tracks){
+  return tracks.filter(t => !isMixOrCompilation(t.title));
+}
+
 /* ---------- YouTube API fetch with retry/backoff, key rotation, and caching ---------- */
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
@@ -2190,12 +2212,12 @@ async function doSearch(){
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(q)}`;
     const data = await fetchYT(url);
-    const tracks = (data.items||[]).map(it => ({
+    const tracks = filterSingleTracks((data.items||[]).map(it => ({
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
-    }));
+    })));
     currentSearchNextToken = data.nextPageToken || null;
     queue = tracks;
     renderTrackList(`Results for "${q}"`, `${tracks.length} tracks found`, tracks, {loadMore: currentSearchNextToken ? loadMoreSearch : null});
@@ -2217,12 +2239,12 @@ async function loadMoreSearch(){
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(currentSearchQuery)}&pageToken=${currentSearchNextToken}`;
     const data = await fetchYT(url);
-    const more = (data.items||[]).map(it => ({
+    const more = filterSingleTracks((data.items||[]).map(it => ({
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
-    }));
+    })));
     currentSearchNextToken = data.nextPageToken || null;
     searchPageCount++;
     queue = queue.concat(more);
@@ -2438,23 +2460,26 @@ function handleImportFile(event){
 
 /* ---------- Quick picks (mood chips landing) ---------- */
 const moodChips = [
-  {label:'Workout', query:'workout gym music mix'},
-  {label:'Energize', query:'energetic hype music mix'},
-  {label:'Feel good', query:'feel good happy music mix'},
-  {label:'Relax', query:'relaxing chill music mix'},
-  {label:'Party', query:'party dance music mix'},
-  {label:'Commute', query:'commute driving music mix'},
-  {label:'Romance', query:'romantic love songs mix'},
-  {label:'Sad', query:'sad emotional music mix'},
-  {label:'Focus', query:'focus concentration music mix'},
-  {label:'Sleep', query:'sleep calm music mix'},
-  {label:'OPM', query:'OPM Original Pilipino Music mix'}
+  {label:'Workout',   emoji:'🏋️', color:'rgba(255,80,80,1)',   query:'workout gym official audio'},
+  {label:'Energize',  emoji:'⚡', color:'rgba(255,200,0,1)',   query:'energetic hype song official audio'},
+  {label:'Feel good', emoji:'😊', color:'rgba(255,150,50,1)',  query:'feel good happy song official audio'},
+  {label:'Relax',     emoji:'🌊', color:'rgba(50,160,255,1)',  query:'relaxing chill song official audio'},
+  {label:'Party',     emoji:'🎉', color:'rgba(180,80,255,1)',  query:'party dance song official audio'},
+  {label:'Commute',   emoji:'🚗', color:'rgba(80,200,180,1)', query:'driving song official audio'},
+  {label:'Romance',   emoji:'💘', color:'rgba(255,80,140,1)', query:'romantic love song official audio'},
+  {label:'Sad',       emoji:'🌧️', color:'rgba(100,130,220,1)',query:'sad emotional song official audio'},
+  {label:'Focus',     emoji:'🎯', color:'rgba(30,215,96,1)',  query:'focus lo-fi instrumental official'},
+  {label:'Sleep',     emoji:'🌙', color:'rgba(80,100,200,1)', query:'sleep calm song official audio'},
+  {label:'OPM',       emoji:'🇵🇭', color:'rgba(0,90,220,1)',   query:'OPM Original Pilipino Music official audio'}
 ];
 let activeMoodIndex = null;
 
 function moodChipsGridHtml(){
   return moodChips.map((m, i) => `
-    <button class="mood-chip" onclick="selectMood(${i})">${escapeHtml(m.label)}</button>
+    <button class="mood-chip" style="--mood-color:${m.color}" onclick="selectMood(${i})">
+      <span class="mood-emoji">${m.emoji}</span>
+      <span class="mood-label">${escapeHtml(m.label)}</span>
+    </button>
   `).join('');
 }
 
@@ -2535,12 +2560,12 @@ async function selectMood(index){
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}`;
     const data = await fetchYT(url);
-    const tracks = (data.items||[]).map(it => ({
+    const tracks = filterSingleTracks((data.items||[]).map(it => ({
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
-    }));
+    })));
     currentMoodNextToken = data.nextPageToken || null;
     queue = tracks;
     renderQuickPicks(mood.label, tracks);
@@ -2566,12 +2591,12 @@ async function loadMoreQuickPicks(){
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(mood.query)}&pageToken=${currentMoodNextToken}`;
     const data = await fetchYT(url);
-    const more = (data.items||[]).map(it => ({
+    const more = filterSingleTracks((data.items||[]).map(it => ({
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
-    }));
+    })));
     currentMoodNextToken = data.nextPageToken || null;
     moodPageCount++;
     if(moodPageCount >= MAX_LOAD_MORE_PAGES) currentMoodNextToken = null;
@@ -2592,13 +2617,13 @@ function shiftMood(delta){
 /* ---------- Genre pills (auto-fetch by genre, same quota-saving pattern as moods) ---------- */
 const genreChips = [
   {label:'All', query:null},
-  {label:'Pop', query:'pop music mix'},
-  {label:'Rock', query:'rock music mix'},
-  {label:'Hip Hop', query:'hip hop rap music mix'},
-  {label:'R&B', query:'r&b soul music mix'},
-  {label:'OPM', query:'OPM Original Pilipino Music mix'},
-  {label:'Lo-fi', query:'lofi chill beats mix'},
-  {label:'Electronic', query:'electronic dance music mix'}
+  {label:'Pop', query:'pop song official audio'},
+  {label:'Rock', query:'rock song official audio'},
+  {label:'Hip Hop', query:'hip hop rap official audio'},
+  {label:'R&B', query:'r&b soul official audio'},
+  {label:'OPM', query:'OPM Original Pilipino Music official audio'},
+  {label:'Lo-fi', query:'lofi chill beats'},
+  {label:'Electronic', query:'electronic dance song official audio'}
 ];
 let activeGenreLabel = 'All';
 const GENRE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h, same reasoning as mood cache
@@ -2708,12 +2733,12 @@ async function selectGenre(label){
   try{
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(genre.query)}`;
     const data = await fetchYT(url);
-    const tracks = (data.items||[]).map(it => ({
+    const tracks = filterSingleTracks((data.items||[]).map(it => ({
       id: it.id.videoId,
       title: decodeHtmlEntities(it.snippet.title),
       channel: decodeHtmlEntities(it.snippet.channelTitle),
       thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
-    }));
+    })));
     queue = tracks;
     renderTrackList(label, `${tracks.length} tracks`, tracks);
     saveGenreCache(label, tracks);
