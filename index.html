@@ -23,11 +23,11 @@
     --line:#242430;
     --text:#f4f3f7;
     --text-dim:#8d8b9a;
-    --accent:#8b5cf6;
-    --accent-2:#3b82f6;
-    --accent-grad:linear-gradient(135deg, var(--accent), var(--accent-2));
-    --accent-soft:rgba(139,92,246,0.14);
-    --accent-line:rgba(139,92,246,0.35);
+    --accent:#1ed760;
+    --accent-2:#1db954;
+    --accent-grad:linear-gradient(135deg, #1ed760, #17a84a);
+    --accent-soft:rgba(30,215,96,0.14);
+    --accent-line:rgba(30,215,96,0.35);
     --radius-sm:6px;
     --radius:10px;
     --radius-lg:16px;
@@ -73,7 +73,7 @@
     border-radius:10px;
     flex-shrink:0;
     display:block;
-    box-shadow:0 0 0 1px var(--accent-line), 0 6px 18px rgba(88,56,214,0.35);
+    box-shadow:0 0 0 1px var(--accent-line), 0 6px 18px rgba(20,160,80,0.35);
   }
   .brand-text{
     display:flex;
@@ -206,7 +206,7 @@
     font-weight:600;
     text-align:center;
     padding:9px 10px;
-    box-shadow:0 4px 14px rgba(88,56,214,0.3);
+    box-shadow:0 4px 14px rgba(20,160,80,0.3);
   }
   #signInBtn:hover{color:#fff; opacity:0.92;}
 
@@ -324,12 +324,46 @@
   .mood-chip:nth-child(5n+5){ --tilt:-1deg; }
   .mood-chip:hover{color:var(--text); border-color:var(--accent-line); transform:rotate(0deg) translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,0.3);}
   .mood-chip.active{
-    color:#fff;
+    color:#0a0a0a;
     background:var(--accent-grad);
     border-color:transparent;
-    box-shadow:0 4px 14px rgba(88,56,214,0.4);
-    font-weight:500;
+    box-shadow:0 4px 14px rgba(20,160,80,0.4);
+    font-weight:700;
     transform:rotate(0deg);
+  }
+  .genre-row{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:2px 2px 10px;
+    margin-bottom:4px;
+    scrollbar-width:none;
+  }
+  .genre-row::-webkit-scrollbar{display:none;}
+  .genre-pill{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:34px;
+    padding:0 18px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--surface-hi);
+    color:var(--text-dim);
+    font-size:13px;
+    font-weight:500;
+    font-family:inherit;
+    white-space:nowrap;
+    cursor:pointer;
+    transition:color .15s, border-color .15s, background .15s;
+  }
+  .genre-pill:hover{color:var(--text); border-color:var(--accent-line);}
+  .genre-pill.active{
+    color:#0a0a0a;
+    background:var(--accent-grad);
+    border-color:transparent;
+    font-weight:700;
   }
   .content{
     flex:1;
@@ -407,6 +441,45 @@
   }
 
   /* Mood picker — now lives in content as the Home idle screen */
+  .hero-carousel{
+    position:relative;
+    height:280px;
+    margin:8px 0 28px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .hero-card{
+    position:absolute;
+    width:230px; height:230px;
+    border-radius:16px;
+    overflow:hidden;
+    background-size:cover; background-position:center;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    transition:transform .3s, opacity .3s, filter .3s;
+    cursor:pointer;
+  }
+  .hero-card.side{
+    opacity:.35;
+    filter:blur(1px) brightness(.6);
+    z-index:1;
+  }
+  .hero-card.side.left{ transform:translateX(-150px) rotate(-6deg) scale(.82); }
+  .hero-card.side.right{ transform:translateX(150px) rotate(6deg) scale(.82); }
+  .hero-card.center{ z-index:2; }
+  .hero-card-overlay{
+    position:absolute; left:0; right:0; bottom:0;
+    padding:14px 16px;
+    background:linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+  }
+  .hero-card-title{font-size:17px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hero-card-artist{font-size:13px; color:rgba(255,255,255,0.75); margin-top:2px;}
+  .hero-card-play{
+    position:absolute; right:14px; bottom:14px;
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff;
+  }
+  .hero-card-play svg{width:16px; height:16px; margin-left:2px;}
   .mood-picker{
     max-width:640px;
     margin:32px auto 0;
@@ -500,7 +573,7 @@
   .library-card-count{font-size:12px; color:var(--text-dim);}
   .library-new-card{border-style:dashed;}
   .library-new-card .library-card-icon{font-size:22px; font-weight:700;}
-  .library-folder-card .library-card-icon{background:rgba(59,130,246,0.16); color:var(--accent-2);}
+  .library-folder-card .library-card-icon{background:rgba(29,185,84,0.16); color:var(--accent-2);}
   .library-empty-note{color:var(--text-dim); font-size:13px; margin-top:6px;}
   .track-row{
     display:grid;
@@ -776,7 +849,7 @@
   }
   .disc-wrap.spinning{
     opacity:1;
-    box-shadow:0 0 0 1px var(--accent-line), 0 0 16px rgba(88,56,214,0.45);
+    box-shadow:0 0 0 1px var(--accent-line), 0 0 16px rgba(20,160,80,0.45);
     animation:disc-spin 6s linear infinite;
   }
   @keyframes disc-spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
@@ -804,11 +877,11 @@
   .np-buttons button.active{color:var(--accent); background:var(--accent-soft);}
   .np-play{
     background:var(--accent-grad) !important;
-    color:#fff !important;
+    color:#0a0a0a !important;
     width:38px !important; height:38px !important;
     border-radius:50%;
     display:flex; align-items:center; justify-content:center;
-    box-shadow:0 4px 14px rgba(88,56,214,0.4);
+    box-shadow:0 4px 14px rgba(20,160,80,0.4);
     transition:transform .12s, opacity .15s;
   }
   .np-play:hover{opacity:0.92; transform:scale(1.04);}
@@ -1390,6 +1463,7 @@
     </div>
     <button class="np-fullscreen-btn" onclick="toggleFullscreenPlayer()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
     <button class="np-add-btn" id="npAddBtn" onclick="openAddToPlaylistModal(currentTrack)" disabled>+ Add to playlist</button>
+    <button class="np-add-btn" id="npWatchBtn" onclick="if(currentTrack) window.open('https://www.youtube.com/watch?v='+currentTrack.id, '_blank')" disabled title="Watch on YouTube">Watch on YouTube ↗</button>
   </div>
 </div>
 
@@ -2389,6 +2463,8 @@ function showHomeIdle(){
   activeMoodIndex = null;
   setActiveNav();
   document.getElementById('content').innerHTML = `
+    <div id="heroSlot">${heroCarouselHtml()}</div>
+    <div class="genre-row" id="genreRow">${genrePillsHtml()}</div>
     <div class="mood-picker">
       <div class="mood-picker-title">Pick a vibe</div>
       <div class="mood-row">${moodChipsGridHtml()}</div>
@@ -2511,6 +2587,139 @@ async function loadMoreQuickPicks(){
 function shiftMood(delta){
   let next = (activeMoodIndex + delta + moodChips.length) % moodChips.length;
   selectMood(next);
+}
+
+/* ---------- Genre pills (auto-fetch by genre, same quota-saving pattern as moods) ---------- */
+const genreChips = [
+  {label:'All', query:null},
+  {label:'Pop', query:'pop music mix'},
+  {label:'Rock', query:'rock music mix'},
+  {label:'Hip Hop', query:'hip hop rap music mix'},
+  {label:'R&B', query:'r&b soul music mix'},
+  {label:'OPM', query:'OPM Original Pilipino Music mix'},
+  {label:'Lo-fi', query:'lofi chill beats mix'},
+  {label:'Electronic', query:'electronic dance music mix'}
+];
+let activeGenreLabel = 'All';
+const GENRE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h, same reasoning as mood cache
+
+function genrePillsHtml(){
+  return genreChips.map(g => `
+    <button class="genre-pill${g.label===activeGenreLabel?' active':''}" onclick="selectGenre('${escAttr(g.label)}')">${escapeHtml(g.label)}</button>
+  `).join('');
+}
+
+/* ---------- Hero carousel (Home) — surfaces recent tracks, official YouTube links only ---------- */
+let heroIndex = 0;
+function heroCarouselHtml(){
+  if(!recentTracks.length) return '';
+  const n = recentTracks.length;
+  const centerT = recentTracks[heroIndex % n];
+  const leftT = n > 1 ? recentTracks[(heroIndex - 1 + n) % n] : null;
+  const rightT = n > 1 ? recentTracks[(heroIndex + 1) % n] : null;
+
+  function cardHtml(t, cls, onclickJs){
+    if(!t) return '';
+    return `<div class="hero-card ${cls}" style="background-image:url('${t.thumb}')" onclick="${onclickJs}">
+      <div class="hero-card-overlay">
+        <div class="hero-card-title">${escapeHtml(t.title)}</div>
+        <div class="hero-card-artist">${escapeHtml(t.channel)}</div>
+      </div>
+      ${cls==='center' ? `<div class="hero-card-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg></div>` : ''}
+    </div>`;
+  }
+
+  return `<div class="hero-carousel">
+    ${cardHtml(leftT, 'side left', 'shiftHero(-1)')}
+    ${cardHtml(centerT, 'center', `playHeroCenter()`)}
+    ${cardHtml(rightT, 'side right', 'shiftHero(1)')}
+  </div>`;
+}
+
+function shiftHero(delta){
+  if(!recentTracks.length) return;
+  heroIndex = (heroIndex + delta + recentTracks.length) % recentTracks.length;
+  const el = document.getElementById('heroSlot');
+  if(el) el.innerHTML = heroCarouselHtml();
+}
+
+function playHeroCenter(){
+  if(!recentTracks.length) return;
+  queue = recentTracks;
+  playFromQueue(heroIndex % recentTracks.length);
+}
+
+async function loadGenreCache(label){
+  if(!firebaseReady || !fbDb) return null;
+  try{
+    const doc = await fbDb.collection('genreCache').doc(label).get();
+    if(doc.exists){
+      const data = doc.data();
+      if(data.updatedAt && (Date.now() - data.updatedAt) < GENRE_CACHE_TTL_MS){
+        return data;
+      }
+    }
+  }catch(err){
+    console.warn('loadGenreCache failed:', err);
+  }
+  return null;
+}
+
+async function saveGenreCache(label, tracks){
+  if(!firebaseReady || !fbDb) return;
+  try{
+    await fbDb.collection('genreCache').doc(label).set({ tracks, updatedAt: Date.now() });
+  }catch(err){
+    console.warn('saveGenreCache failed:', err);
+  }
+}
+
+async function selectGenre(label){
+  activeGenreLabel = label;
+  // Re-render just the pill row so the active state updates immediately
+  const row = document.getElementById('genreRow');
+  if(row) row.innerHTML = genrePillsHtml();
+
+  // "All" goes back to whatever the default home view is (Top 20 / idle) —
+  // no extra API call needed since that view already loads on its own.
+  if(label === 'All'){
+    showHomeIdle();
+    return;
+  }
+
+  const genre = genreChips.find(g => g.label === label);
+  currentView = {type:'genre', label};
+  setActiveNav();
+  renderLoading();
+
+  if(!apiKeys.length){
+    document.getElementById('content').innerHTML = `<div class="empty"><b>No API key set on this device.</b><br>Tap the TunePlayerr logo 5 times to add one.</div>`;
+    return;
+  }
+
+  // Same "first one pays, everyone else that day rides free" cache as moods
+  const cached = await loadGenreCache(label);
+  if(cached){
+    queue = cached.tracks;
+    renderTrackList(label, `${cached.tracks.length} tracks`, cached.tracks);
+    return;
+  }
+
+  try{
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=50&q=${encodeURIComponent(genre.query)}`;
+    const data = await fetchYT(url);
+    const tracks = (data.items||[]).map(it => ({
+      id: it.id.videoId,
+      title: decodeHtmlEntities(it.snippet.title),
+      channel: decodeHtmlEntities(it.snippet.channelTitle),
+      thumb: (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
+    }));
+    queue = tracks;
+    renderTrackList(label, `${tracks.length} tracks`, tracks);
+    saveGenreCache(label, tracks);
+  }catch(err){
+    renderError(err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : err.message);
+  }
 }
 
 function renderQuickPicks(label, tracks){
@@ -2654,6 +2863,7 @@ function loadCurrentTrack(){
   document.getElementById('npChannel').textContent = currentTrack.channel;
   document.getElementById('npThumb').src = currentTrack.thumb;
   document.getElementById('npAddBtn').disabled = false;
+  document.getElementById('npWatchBtn').disabled = false;
   if(player && playerReady){
     player.loadVideoById(currentTrack.id);
   }
