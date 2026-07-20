@@ -615,6 +615,7 @@
     cursor:pointer;
   }
   .section-actions button:hover{color:var(--text);}
+  .section-actions button.public-toggle-on{color:var(--accent);}
   .track-thumb{
     width:40px; height:40px;
     border-radius:8px;
@@ -1400,6 +1401,7 @@
       <button class="nav-item" data-view="library" onclick="showLibrary()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>Library</span></button>
       <button class="nav-item" data-view="top" onclick="showMostPopular()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Most Popular</span></button>
       <button class="nav-item" data-view="recent" onclick="showRecent()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Recently played</span></button>
+      <button class="nav-item" data-view="popular" onclick="showPopularPlaylists()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span>Most Saved Playlists</span></button>
     </div>
   </div>
 
@@ -1421,6 +1423,7 @@
         <button class="nav-item" data-view="search" onclick="switchView('search')">Home</button>
         <button class="nav-item" data-view="top" onclick="showMostPopular()">Most Popular</button>
         <button class="nav-item" data-view="recent" onclick="showRecent()">Recently played</button>
+        <button class="nav-item" data-view="popular" onclick="showPopularPlaylists()">Most Saved Playlists</button>
       </div>
     </div>
     <div class="content" id="content">
@@ -1703,11 +1706,13 @@ async function loadUserDataFromCloud(uid){
       playlists = data.playlists || {};
       recentTracks = data.recent || [];
       playlistFolders = data.folders || {};
+      playlistMeta = data.playlistMeta || {};
     } else {
       playlists = {};
       recentTracks = [];
       playlistFolders = {};
-      await fbDb.collection('users').doc(uid).set({ playlists:{}, recent:[], folders:{} });
+      playlistMeta = {};
+      await fbDb.collection('users').doc(uid).set({ playlists:{}, recent:[], folders:{}, playlistMeta:{} });
     }
   }catch(err){
     showToast('Could not load your cloud playlists: ' + err.message, 'error');
@@ -1718,6 +1723,7 @@ function loadGuestDataFromLocalStorage(){
   playlists = JSON.parse(localStorage.getItem('tc_playlists') || '{}');
   recentTracks = JSON.parse(localStorage.getItem('tc_recent') || '[]');
   playlistFolders = JSON.parse(localStorage.getItem('tc_playlist_folders') || '{}');
+  playlistMeta = JSON.parse(localStorage.getItem('tc_playlist_meta') || '{}');
 }
 
 async function persistUserData(){
@@ -1726,7 +1732,8 @@ async function persistUserData(){
       await fbDb.collection('users').doc(currentUser.uid).set({
         playlists: playlists,
         recent: recentTracks,
-        folders: playlistFolders
+        folders: playlistFolders,
+        playlistMeta: playlistMeta
       });
     }catch(err){
       showToast('Could not save to your account: ' + err.message, 'error');
@@ -1735,6 +1742,7 @@ async function persistUserData(){
     localStorage.setItem('tc_playlists', JSON.stringify(playlists));
     localStorage.setItem('tc_recent', JSON.stringify(recentTracks));
     localStorage.setItem('tc_playlist_folders', JSON.stringify(playlistFolders));
+    localStorage.setItem('tc_playlist_meta', JSON.stringify(playlistMeta));
   }
 }
 
@@ -1778,6 +1786,7 @@ let apiKeys = JSON.parse(localStorage.getItem('tc_api_keys') || 'null') || [DEFA
 let currentKeyIndex = parseInt(localStorage.getItem('tc_key_index'), 10) || 0;
 if(currentKeyIndex >= apiKeys.length) currentKeyIndex = 0;
 let playlists = JSON.parse(localStorage.getItem('tc_playlists') || '{}');
+let playlistMeta = JSON.parse(localStorage.getItem('tc_playlist_meta') || '{}'); // { [name]: {isPublic:bool} }
 let playlistFolders = JSON.parse(localStorage.getItem('tc_playlist_folders') || '{}'); // {folderName: [playlistName, ...]}
 
 /* ---------- Icons (inline SVG, inherit color via currentColor) ---------- */
@@ -1915,10 +1924,10 @@ async function saveSharedApiPool(){
   }
 }
 
-async function fetchYT(baseUrl, maxRetries = 3){
+async function fetchYT(baseUrl, maxRetries = 3, skipCache = false){
   // Serve from cache if we searched this exact query recently — saves quota entirely.
   const cached = ytCache.get(baseUrl);
-  if(cached && (Date.now() - cached.time) < YT_CACHE_TTL){
+  if(!skipCache && cached && (Date.now() - cached.time) < YT_CACHE_TTL){
     return cached.data;
   }
 
@@ -1969,8 +1978,10 @@ async function fetchYT(baseUrl, maxRetries = 3){
       throw err;
     }
 
-    ytCache.set(baseUrl, {data, time: Date.now()});
-    persistYtCacheToStorage();
+    if(!skipCache){
+      ytCache.set(baseUrl, {data, time: Date.now()});
+      persistYtCacheToStorage();
+    }
     return data;
   }
 }
@@ -2301,7 +2312,9 @@ function renderTrackList(title, sub, tracks, opts={}){
 
   let actionsHtml = '';
   if(playlistName){
+    const isPublic = isPlaylistPublic(playlistName);
     actionsHtml = `<div class="section-actions">
+      <button class="${isPublic?'public-toggle-on':''}" onclick="togglePlaylistPublic('${escAttr(playlistName)}')" title="${isPublic?'Anyone can find and save this playlist':'Only you can see this playlist'}">${isPublic?'🌐 Public':'🔒 Make public'}</button>
       <button onclick="exportPlaylist('${escAttr(playlistName)}')">Export as JSON</button>
       <button onclick="document.getElementById('importFileInput').dataset.target='${escAttr(playlistName)}'; document.getElementById('importFileInput').click()">Import JSON</button>
     </div>`;
@@ -2503,7 +2516,8 @@ function showHomeIdle(){
   setActiveNav();
   document.getElementById('content').innerHTML = `
     <div id="heroSlot">${heroCarouselHtml()}</div>
-    <div class="genre-row" id="genreRow">${genrePillsHtml()}</div>`;
+    <div class="genre-row" id="genreRow">${genrePillsHtml()}</div>
+    <div id="genreTrackList"></div>`;
   closeSidebarOnMobile();
 }
 
@@ -2688,6 +2702,39 @@ function playHeroCenter(){
   playFromQueue(heroIndex % source.length);
 }
 
+function renderGenreTrackList(label, tracks){
+  const el = document.getElementById('genreTrackList');
+  if(!el) return;
+  if(!tracks.length){ el.innerHTML = ''; return; }
+  let html = `
+    <div class="quick-picks-header">
+      <div class="section-title">${escapeHtml(label)} tracks</div>
+      <div class="qp-actions">
+        <button class="qp-play-all" onclick="playAllGenreTracks()">Play all</button>
+      </div>
+    </div>
+    <div class="quick-picks-grid">`;
+  tracks.forEach((t, i) => {
+    const isPlaying = currentTrack && currentTrack.id === t.id;
+    html += `
+      <div class="qp-item ${isPlaying?'playing':''}" onclick="playFromQueue(${i})">
+        <img class="qp-thumb" src="${t.thumb}" alt="">
+        <div class="qp-meta">
+          <div class="qp-title">${escapeHtml(t.title)}</div>
+          <div class="qp-sub">${escapeHtml(t.channel)}</div>
+        </div>
+      </div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function playAllGenreTracks(){
+  if(!heroOverrideTracks || !heroOverrideTracks.length) return;
+  queue = heroOverrideTracks;
+  playFromQueue(0);
+}
+
 async function loadGenreCache(label){
   if(!firebaseReady || !fbDb) return null;
   try{
@@ -2737,6 +2784,8 @@ async function selectGenre(label){
   }
 
   if(heroEl) heroEl.innerHTML = `<div class="empty">Loading ${escapeHtml(label)}…</div>`;
+  const listEl = document.getElementById('genreTrackList');
+  if(listEl) listEl.innerHTML = '';
 
   // Same "first one pays, everyone else that day rides free" cache as moods
   const cached = await loadGenreCache(label);
@@ -2745,6 +2794,7 @@ async function selectGenre(label){
     heroIndex = 0;
     queue = cached.tracks;
     if(heroEl) heroEl.innerHTML = heroCarouselHtml();
+    renderGenreTrackList(label, cached.tracks);
     return;
   }
 
@@ -2761,6 +2811,7 @@ async function selectGenre(label){
     heroIndex = 0;
     queue = tracks;
     if(heroEl) heroEl.innerHTML = heroCarouselHtml();
+    renderGenreTrackList(label, tracks);
     saveGenreCache(label, tracks);
   }catch(err){
     if(heroEl) heroEl.innerHTML = `<div class="empty">${err.message === 'NETWORK' ? 'Could not reach YouTube. Check your connection or API key.' : escapeHtml(err.message)}</div>`;
@@ -2825,7 +2876,7 @@ async function showMostPopular(){
   renderLoading();
   try{
     const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&videoCategoryId=10&regionCode=PH&maxResults=20`;
-    const data = await fetchYT(url);
+    const data = await fetchYT(url, 3, true);
     const tracks = (data.items||[]).map(it => ({
       id: it.id,
       title: decodeHtmlEntities(it.snippet.title),
@@ -3181,9 +3232,23 @@ function prevTrack(){
 
 function refreshCurrentView(){
   if(currentView.type === 'search'){
-    // re-render just to update "playing" highlight, keep queue as-is
-    const title = document.getElementById('content').querySelector('.section-title');
-    if(title) renderTrackList(title.textContent, document.querySelector('.section-sub')?.textContent || '', queue);
+    const heroEl = document.getElementById('heroSlot');
+    if(heroEl){
+      // Home idle screen — keep the carousel centered on whatever's actually
+      // playing, even when the track changed via next/prev/auto-advance
+      // rather than by clicking the carousel itself.
+      const source = heroOverrideTracks || recentTracks;
+      if(currentTrack && source.length){
+        const idx = source.findIndex(t => t.id === currentTrack.id);
+        if(idx !== -1) heroIndex = idx;
+      }
+      heroEl.innerHTML = heroCarouselHtml();
+      if(heroOverrideTracks) renderGenreTrackList(activeGenreLabel, heroOverrideTracks);
+    } else {
+      // re-render just to update "playing" highlight, keep queue as-is
+      const title = document.getElementById('content').querySelector('.section-title');
+      if(title) renderTrackList(title.textContent, document.querySelector('.section-sub')?.textContent || '', queue);
+    }
   } else if(currentView.type === 'playlist'){
     showPlaylist(currentView.name, false);
   } else if(currentView.type === 'recent'){
@@ -3198,6 +3263,144 @@ function refreshCurrentView(){
 /* ---------- Playlists ---------- */
 function savePlaylists(){
   persistUserData();
+  // Keep public mirrors fresh on every save (add/remove/reorder/import all
+  // funnel through here) instead of hunting down each mutation call site.
+  Object.keys(playlistMeta).forEach(name => {
+    if(playlistMeta[name] && playlistMeta[name].isPublic && playlists[name]){
+      publishPlaylist(name);
+    }
+  });
+}
+
+/* ---------- Public playlists (discover / most-saved) ---------- */
+function isPlaylistPublic(name){
+  return !!(playlistMeta[name] && playlistMeta[name].isPublic);
+}
+
+function publicPlaylistDocId(uid, name){
+  return `${uid}_${encodeURIComponent(name)}`;
+}
+
+async function togglePlaylistPublic(name){
+  if(!playlists[name]) return;
+  if(!currentUser){
+    showToast('Sign in to share a playlist publicly.', 'error');
+    return;
+  }
+  if(!playlistMeta[name]) playlistMeta[name] = {};
+  playlistMeta[name].isPublic = !playlistMeta[name].isPublic;
+  savePlaylists();
+
+  if(playlistMeta[name].isPublic){
+    await publishPlaylist(name);
+    showToast(`"${name}" is public now — anyone can find and save it.`, 'success');
+  } else {
+    await unpublishPlaylist(name);
+    showToast(`"${name}" is private again.`, 'success');
+  }
+
+  if(currentView.type === 'playlist' && currentView.name === name) showPlaylist(name, false);
+}
+
+async function publishPlaylist(name){
+  if(!firebaseReady || !fbDb || !currentUser) return;
+  const tracks = playlists[name] || [];
+  const ref = fbDb.collection('publicPlaylists').doc(publicPlaylistDocId(currentUser.uid, name));
+  try{
+    await ref.set({
+      ownerUid: currentUser.uid,
+      ownerName: currentUser.displayName || 'A TunePlayerr user',
+      name: name,
+      trackCount: tracks.length,
+      coverThumb: (tracks[0] && tracks[0].thumb) || '',
+      tracks: tracks,
+      importCount: firebase.firestore.FieldValue.increment(0),
+      updatedAt: Date.now()
+    }, {merge:true});
+  }catch(err){
+    showToast('Could not publish playlist: ' + err.message, 'error');
+  }
+}
+
+async function unpublishPlaylist(name){
+  if(!firebaseReady || !fbDb || !currentUser) return;
+  try{
+    await fbDb.collection('publicPlaylists').doc(publicPlaylistDocId(currentUser.uid, name)).delete();
+  }catch(err){
+    // Non-fatal — worst case an orphaned public doc lingers; not worth blocking the UI over.
+    console.warn('unpublishPlaylist failed:', err);
+  }
+}
+
+async function showPopularPlaylists(){
+  currentView = {type:'popular'};
+  setActiveNav();
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="section-title">🔥 Most saved playlists</div><div class="section-sub">Loading…</div>`;
+  closeSidebarOnMobile();
+
+  if(!firebaseReady || !fbDb){
+    content.innerHTML = `<div class="section-title">🔥 Most saved playlists</div><div class="empty">Discovering other users' playlists needs cloud sync — sign in to use this.</div>`;
+    return;
+  }
+  try{
+    const snap = await fbDb.collection('publicPlaylists').orderBy('importCount', 'desc').limit(30).get();
+    renderPopularPlaylists(snap.docs.map(d => ({id:d.id, ...d.data()})));
+  }catch(err){
+    content.innerHTML = `<div class="section-title">🔥 Most saved playlists</div><div class="empty">Could not load right now: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderPopularPlaylists(items){
+  const content = document.getElementById('content');
+  if(!items.length){
+    content.innerHTML = `<div class="section-title">🔥 Most saved playlists</div><div class="section-sub">Ranked by how many people saved it to their own library</div><div class="empty">Walang public playlist pa — be the first! Buksan ang isa sa playlists mo at i-tap ang "Make public".</div>`;
+    return;
+  }
+  let html = `
+    <div class="section-title">🔥 Most saved playlists</div>
+    <div class="section-sub">Ranked by how many people saved it to their own library</div>
+    <div class="quick-picks-grid">`;
+  items.forEach(p => {
+    html += `
+      <div class="qp-item" onclick="importPublicPlaylist('${escAttr(p.ownerUid)}','${escAttr(p.name)}')">
+        <img class="qp-thumb" src="${p.coverThumb || ''}" alt="">
+        <div class="qp-meta">
+          <div class="qp-title">${escapeHtml(p.name)}</div>
+          <div class="qp-sub">by ${escapeHtml(p.ownerName || 'A TunePlayerr user')} · ${p.trackCount || 0} tracks · ${p.importCount || 0} saves</div>
+        </div>
+      </div>`;
+  });
+  html += `</div>`;
+  content.innerHTML = html;
+}
+
+async function importPublicPlaylist(ownerUid, name){
+  if(!firebaseReady || !fbDb) return;
+  const docId = publicPlaylistDocId(ownerUid, name);
+  try{
+    const doc = await fbDb.collection('publicPlaylists').doc(docId).get();
+    if(!doc.exists){
+      showToast('This playlist is no longer available.', 'error');
+      return;
+    }
+    const data = doc.data();
+    const tracks = data.tracks || [];
+    if(!tracks.length){
+      showToast('This playlist has no tracks yet.', 'error');
+      return;
+    }
+    let finalName = data.name;
+    let n = 2;
+    while(playlists[finalName]){ finalName = `${data.name} (${n})`; n++; }
+    playlists[finalName] = tracks.map(t => ({id:t.id, title:t.title||'Untitled', channel:t.channel||'', thumb:t.thumb||''}));
+    savePlaylists();
+    renderPlaylistNav();
+    fbDb.collection('publicPlaylists').doc(docId).update({ importCount: firebase.firestore.FieldValue.increment(1) }).catch(()=>{});
+    showToast(`Na-save sa library mo: "${finalName}"`, 'success');
+  }catch(err){
+    showToast('Could not save playlist: ' + err.message, 'error');
+  }
 }
 
 function renderPlaylistNav(){
@@ -3330,11 +3533,14 @@ function openDeletePlaylistModal(name){
 function confirmDeletePlaylist(){
   const name = pendingDeletePlaylist;
   if(!name || !playlists[name]) return;
+  const wasPublic = isPlaylistPublic(name);
   delete playlists[name];
+  delete playlistMeta[name];
   Object.keys(playlistFolders).forEach(folder => {
     playlistFolders[folder] = playlistFolders[folder].filter(n => n !== name);
   });
   savePlaylists();
+  if(wasPublic) unpublishPlaylist(name);
   closeModal('deletePlaylistModal');
   pendingDeletePlaylist = null;
   if(currentView.type === 'playlist' && currentView.name === name){
@@ -3701,6 +3907,7 @@ function setActiveNav(){
   else if(currentView.type === 'recent') activeView = 'recent';
   else if(currentView.type === 'top') activeView = 'top';
   else if(currentView.type === 'library' || currentView.type === 'playlist' || currentView.type === 'folder') activeView = 'library';
+  else if(currentView.type === 'popular') activeView = 'popular';
   if(activeView){
     document.querySelectorAll(`.nav-item[data-view="${activeView}"]`).forEach(el => el.classList.add('active'));
   }
@@ -3742,6 +3949,7 @@ function replayView(view){
       case 'recent': showRecent(); break;
       case 'playlist': showPlaylist(view.name); break;
       case 'folder': showFolder(view.name); break;
+      case 'popular': showPopularPlaylists(); break;
       default: showHomeIdle();
     }
   } finally {
