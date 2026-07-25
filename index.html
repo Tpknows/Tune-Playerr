@@ -3735,61 +3735,99 @@ function selectYtPlaylistResult(playlistId, suggestedTitle){
   importPlaylistById(playlistId, nameInput.value.trim() || suggestedTitle || 'Imported playlist');
 }
 
-async function importPlaylistById(playlistId, suggestedName){
+async function scrapePlaylist(playlistId) {
+  try {
+    const url = `https://www.youtube.com/playlist?list=${playlistId}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+    if (!res.ok) throw new Error('Failed to load page');
+    const html = await res.text();
+    const tracks = [];
+
+    const patterns = [
+      /"videoId":"([^"]+)".*?"title":{"simpleText":"([^"]+)"}/g,
+      /videoId\\":\\"([^"]+)\\".*?title\\":\{[^}]*?"text\\":\\"([^"]+)"\\}/g
+    ];
+
+    for (const regex of patterns) {
+      let match;
+      while ((match = regex.exec(html)) !== null) {
+        const id = match[1];
+        const title = decodeHtmlEntities(match[2]);
+        if (id && title && !tracks.some(t => t.id === id)) {
+          tracks.push({
+            id: id,
+            title: title,
+            channel: 'Scraped',
+            thumb: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
+          });
+        }
+      }
+    }
+    return tracks;
+  } catch (e) {
+    console.error("Scraping error:", e);
+    return [];
+  }
+}
+
+async function importPlaylistById(playlistId, suggestedName) {
   const status = document.getElementById('importYtStatus');
   const createBtn = document.getElementById('createPlaylistBtn');
-
   createBtn.disabled = true;
-  status.textContent = 'Ina-import ang mga kanta…';
+
+  status.textContent = 'Scraping playlist (no quota used)...';
   status.className = 'import-yt-status';
 
-  try{
-    let allTracks = [];
-    let pageToken = '';
-    let pages = 0;
-    do{
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${encodeURIComponent(playlistId)}${pageToken ? '&pageToken='+pageToken : ''}`;
-      const data = await fetchYT(url);
-      const items = (data.items || []).filter(it =>
-        it.snippet && it.snippet.resourceId && it.snippet.resourceId.videoId &&
-        decodeHtmlEntities(it.snippet.title) !== 'Private video' && decodeHtmlEntities(it.snippet.title) !== 'Deleted video'
-      );
-      allTracks = allTracks.concat(items.map(it => ({
-        id: it.snippet.resourceId.videoId,
-        title: decodeHtmlEntities(it.snippet.title),
-        channel: decodeHtmlEntities(it.snippet.videoOwnerChannelTitle) || decodeHtmlEntities(it.snippet.channelTitle) || '',
-        thumb: (it.snippet.thumbnails && (it.snippet.thumbnails.default || it.snippet.thumbnails.medium) || {}).url || ''
-      })));
-      pageToken = data.nextPageToken || '';
-      pages++;
-    } while(pageToken && pages < 10);
+  let allTracks = await scrapePlaylist(playlistId);
 
-    if(allTracks.length === 0){
-      status.textContent = 'Walang nakuhang kanta — baka private ang playlist o mali ang link.';
+  if (allTracks.length === 0) {
+    status.textContent = 'Scraping failed — trying YouTube API fallback...';
+    try {
+      let pageToken = '';
+      do {
+        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${encodeURIComponent(playlistId)}${pageToken ? '&pageToken=' + pageToken : ''}`;
+        const data = await fetchYT(url);
+        const items = (data.items || []).filter(it => it.snippet?.resourceId?.videoId);
+        allTracks.push(...items.map(it => ({
+          id: it.snippet.resourceId.videoId,
+          title: decodeHtmlEntities(it.snippet.title),
+          channel: decodeHtmlEntities(it.snippet.videoOwnerChannelTitle || it.snippet.channelTitle || ''),
+          thumb: (it.snippet.thumbnails?.medium || it.snippet.thumbnails?.default)?.url || ''
+        })));
+        pageToken = data.nextPageToken || '';
+      } while (pageToken);
+    } catch (e) {
+      status.textContent = 'Both scraping and API failed.';
       status.className = 'import-yt-status error';
       createBtn.disabled = false;
       return;
     }
-
-    let name = suggestedName || 'Imported playlist';
-    let finalName = name, n = 2;
-    while(playlists[finalName]){ finalName = `${name} (${n})`; n++; }
-
-    playlists[finalName] = allTracks;
-    savePlaylists();
-    renderPlaylistNav();
-    status.textContent = `Na-import ang ${allTracks.length} kanta bilang "${finalName}".`;
-    status.className = 'import-yt-status success';
-    setTimeout(() => {
-      closeModal('newPlaylistModal');
-      showPlaylist(finalName);
-    }, 700);
-  }catch(err){
-    status.textContent = err.message === 'NETWORK' ? 'Hindi ma-reach ang YouTube. Check ang connection.' : err.message;
-    status.className = 'import-yt-status error';
-  }finally{
-    createBtn.disabled = false;
   }
+
+  if (allTracks.length === 0) {
+    status.textContent = 'No tracks found.';
+    status.className = 'import-yt-status error';
+    createBtn.disabled = false;
+    return;
+  }
+
+  let name = suggestedName || 'Imported Playlist';
+  let finalName = name, n = 2;
+  while (playlists[finalName]) { finalName = `${name} (${n})`; n++; }
+
+  playlists[finalName] = allTracks;
+  savePlaylists();
+  renderPlaylistNav();
+
+  status.textContent = `✅ Imported ${allTracks.length} tracks as "${finalName}"`;
+  status.className = 'import-yt-status success';
+
+  setTimeout(() => {
+    closeModal('newPlaylistModal');
+    showPlaylist(finalName);
+  }, 800);
 }
 
 function showPlaylist(name, setNav=true){
